@@ -31,6 +31,7 @@ SELECT * FROM customers;
 
 <img width="1535" height="857" alt="image" src="https://github.com/user-attachments/assets/d37020c7-b977-434c-8bf1-ee7322dbbef0" />
 
+
 **1.2. Вивести тільки назви товарів і їхні ціни з таблиці products.**
 ```
 SELECT product_name, unit_price FROM products;
