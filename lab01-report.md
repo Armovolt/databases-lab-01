@@ -48,9 +48,3 @@ SELECT first_name, last_name, phone, email FROM employees;
 SELECT * FROM customers WHERE city = 'Київ';
 ```
 <img width="1534" height="848" alt="image" src="https://github.com/user-attachments/assets/1ec04b4b-b8d5-420a-9737-7d2fee746d76" />
-
-**1.5. Вивести товари, які коштують більше 25000 грн.**
-```
-SELECT * FROM products WHERE unit_price > 25000;
-```
-<img width="1534" height="848" alt="image" src="https://github.com/user-attachments/assets/e98d89bd-3bbb-462c-b0e7-27cd749ec0ae" />
