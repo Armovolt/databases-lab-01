@@ -24,7 +24,7 @@ ORDER BY table_name;
 
 ### РІВЕНЬ 1: Основні запити
 **1.1. Отримати всі записи з таблиці customers.**
-```
+```sql
 SELECT * FROM customers;
 ```
 **Результат:** Отримано 15 записів клієнтів (фізичні та юридичні особи).
@@ -32,92 +32,92 @@ SELECT * FROM customers;
 <img width="1535" height="857" alt="image" src="https://github.com/user-attachments/assets/d37020c7-b977-434c-8bf1-ee7322dbbef0" />
 
 **1.2. Вивести тільки назви товарів і їхні ціни з таблиці products.**
-```
+```sql
 SELECT product_name, unit_price FROM products;
 ```
 <img width="1533" height="852" alt="image" src="https://github.com/user-attachments/assets/491f980e-2494-4838-839f-6e8a1579faf7" />
 
 **1.3. Показати контактні дані всіх співробітників.**
-```
+```sql
 SELECT first_name, last_name, phone, email FROM employees;
 ```
 <img width="1536" height="850" alt="image" src="https://github.com/user-attachments/assets/03d12212-13f6-4fb2-8427-6fd20c1b351b" />
 
 **1.4. Знайти всіх клієнтів з міста Київ.**
-```
+```sql
 SELECT * FROM customers WHERE city = 'Київ';
 ```
 <img width="1534" height="848" alt="image" src="https://github.com/user-attachments/assets/1ec04b4b-b8d5-420a-9737-7d2fee746d76" />
 
 **1.5. Вивести товари, які коштують більше 25000 грн.**
-```
+```sql
 SELECT * FROM products WHERE unit_price > 25000;
 ```
 <img width="1534" height="856" alt="image" src="https://github.com/user-attachments/assets/0ae89bc7-0d45-4029-871e-9bfee61ed4da" />
 
 **1.6. Показати всі замовлення зі статусом 'delivered'.**
-```
+```sql
 SELECT * FROM orders WHERE order_status = 'delivered';
 ```
 <img width="1531" height="853" alt="image" src="https://github.com/user-attachments/assets/5fa4b277-f30e-4203-b133-b16e3abfd6c9" />
 
 **1.7. Знайти співробітників відділу продажів (посада містить "продаж").**
-```
+```sql
 SELECT * FROM employees WHERE title ILIKE '%продаж%';
 ```
 <img width="1533" height="851" alt="image" src="https://github.com/user-attachments/assets/c9e63cd9-03a7-47b1-8018-3843ffd50d1a" />
 
 **1.8. Відсортувати товари за зростанням ціни.**
-```
+```sql
 SELECT * FROM products ORDER BY unit_price ASC;
 ```
 <img width="1539" height="850" alt="image" src="https://github.com/user-attachments/assets/63a986a7-ddfe-4bff-84f9-c6a8a9170069" />
 
 **1.9. Показати клієнтів в алфавітному порядку за іменем контактної особи.**
-```
+```sql
 SELECT * FROM customers ORDER BY contact_name ASC;
 ```
 <img width="1537" height="850" alt="image" src="https://github.com/user-attachments/assets/2a654558-d8a6-4d4f-80c3-3239a9117a0d" />
 
 **1.10. Вивести замовлення від найновіших до найстаріших.**
-```
+```sql
 SELECT * FROM orders ORDER BY order_date DESC;
 ```
 <img width="1536" height="851" alt="image" src="https://github.com/user-attachments/assets/59559149-870f-48af-9e81-2dcc4d1f7dac" />
 
 **1.11. Показати перші 10 найдорожчих товарів.**
-```
+```sql
 SELECT * FROM products ORDER BY unit_price DESC LIMIT 10;
 ```
 <img width="1531" height="855" alt="image" src="https://github.com/user-attachments/assets/e7d8c061-e2f3-4e67-89f4-99fd8ce41e7a" />
 
 **1.12. Вивести 5 останніх замовлень (за датою).**
-```
+```sql
 SELECT * FROM orders ORDER BY order_date DESC LIMIT 5;
 ```
 <img width="1532" height="853" alt="image" src="https://github.com/user-attachments/assets/66a07f5c-fa83-4ee3-b533-a9270fb3a5a7" />
 
 **1.13. Отримати перших 8 клієнтів в алфавітному порядку.**
-```
+```sql
 SELECT * FROM customers ORDER BY contact_name ASC LIMIT 8;
 ```
 <img width="1537" height="854" alt="image" src="https://github.com/user-attachments/assets/917f95aa-0616-4483-9f7d-f30fa5afab82" />
 
 ### РІВЕНЬ 2: Розширені умови та логічні оператори
 **2.1. Знайти всіх клієнтів, чиї імена починаються на "Іван".**
-```
+```sql
 SELECT * FROM customers WHERE contact_name ILIKE 'Іван%';
 ```
 <img width="1535" height="850" alt="image" src="https://github.com/user-attachments/assets/2cea5497-7c21-4d1e-a67f-698cb173d43f" />
 
 **2.2. Вивести товари, в назві яких є слово "phone" або "телефон".**
-```
+```sql
 SELECT * FROM products WHERE product_name ILIKE '%phone%' OR product_name ILIKE '%телефон%';
 ```
 <img width="1536" height="850" alt="image" src="https://github.com/user-attachments/assets/ee068ac2-2d76-44ce-904d-d6c6e01de947" />
 
 **2.3. Самостійно: 3 власні запити з використанням LIKE (початок, кінець, містить).**
-```
+```sql
 -- 1 (Початок): Знайти всі товари бренду Samsung
 SELECT * FROM products WHERE product_name ILIKE 'Samsung%';
 
@@ -130,19 +130,19 @@ SELECT * FROM employees WHERE title ILIKE '%директор%';
 <img width="1538" height="849" alt="image" src="https://github.com/user-attachments/assets/48303877-ff36-4d1d-82a4-7acdedb90e5c" />
 
 **2.4. Знайти товари дорожчі за 15000 грн і дешевші за 50000 грн.**
-```
+```sql
 SELECT * FROM products WHERE unit_price > 15000 AND unit_price < 50000;
 ```
 <img width="1540" height="849" alt="image" src="https://github.com/user-attachments/assets/7a0a0ed0-0a37-4cf9-90b4-be8b09325feb" />
 
 **2.5. Вивести клієнтів з Києва або Львова, які є юридичними особами.**
-```
+```sql
 SELECT * FROM customers WHERE (city = 'Київ' OR city = 'Львів') AND customer_type = 'company';
 ```
 <img width="1533" height="851" alt="image" src="https://github.com/user-attachments/assets/1995eab8-a14d-43b3-b7fa-f6c46eea73fa" />
 
 **2.6. Самостійно: 4 запити з комбінаціями логічних операторів.**
-```
+```sql
 -- 1. Товари, які закінчуються на складі (менше 10 шт), але не зняті з виробництва
 SELECT * FROM products WHERE units_in_stock < 10 AND discontinued = false;
 
@@ -158,19 +158,19 @@ SELECT * FROM products WHERE category_id = 1 AND unit_price > 20000;
 <img width="1537" height="852" alt="image" src="https://github.com/user-attachments/assets/9052358c-bd47-495a-b244-a5fb4c8fd785" />
 
 **2.7. Вивести клієнтів з міст Київ, Харків, Одеса, Дніпро.**
-```
+```sql
 SELECT * FROM customers WHERE city IN ('Київ', 'Харків', 'Одеса', 'Дніпро');
 ```
 <img width="1535" height="857" alt="image" src="https://github.com/user-attachments/assets/5311bb4d-a3ae-426a-a6e0-175042e8b360" />
 
 **2.8. Знайти товари в ціновому діапазоні від 10000 до 30000 грн.**
-```
+```sql
 SELECT * FROM products WHERE unit_price BETWEEN 10000 AND 30000;
 ```
 <img width="1533" height="855" alt="image" src="https://github.com/user-attachments/assets/9a0316b6-7daa-43aa-909d-9870e570883b" />
 
 **2.9. Самостійно: по 2 запити для IN, BETWEEN, IS NULL/IS NOT NULL.**
-```
+```sql
 -- IN (1): Співробітники ключових філій
 SELECT * FROM employees WHERE city IN ('Київ', 'Львів');
 -- IN (2): Електроніка (смартфони, ноути, планшети)
@@ -189,7 +189,7 @@ SELECT * FROM orders WHERE shipped_date IS NOT NULL;
 <img width="1533" height="852" alt="image" src="https://github.com/user-attachments/assets/6ecfc350-0055-46a8-969f-ba7b34e94caa" />
 
 **2.10. Самостійно (Комбінування умов): 5 складних запитів.**
-```
+```sql
 -- 1. Доступні ноутбуки або смартфони в певному бюджеті
 SELECT * FROM products WHERE (category_id = 1 OR category_id = 2) AND unit_price BETWEEN 20000 AND 40000 AND units_in_stock > 0;
 
@@ -208,7 +208,7 @@ SELECT * FROM employees WHERE reports_to IS NOT NULL AND salary < 25000 AND city
 <img width="1537" height="848" alt="image" src="https://github.com/user-attachments/assets/7ecca7f2-1464-4b4b-81ee-903f37f305ce" />
 
 **2.11. Самостійно: 3 запити з сортуванням та 2 з OFFSET.**
-```
+```sql
 -- Сортування 1: Товари спочатку за категорією, а в межах неї - від найдорожчого
 SELECT * FROM products ORDER BY category_id ASC, unit_price DESC;
 
@@ -228,7 +228,7 @@ SELECT * FROM orders ORDER BY order_date DESC LIMIT 5 OFFSET 3;
 
 ### РІВЕНЬ 3: Комплексна аналітика
 **3.1. Знайти товари, в назві яких є "Samsung" або "Apple", але немає слова "чохол".**
-```
+```sql
 SELECT * FROM products 
 WHERE (product_name ILIKE '%Samsung%' OR product_name ILIKE '%Apple%') 
 AND product_name NOT ILIKE '%чохол%';
@@ -236,7 +236,7 @@ AND product_name NOT ILIKE '%чохол%';
 <img width="1533" height="846" alt="image" src="https://github.com/user-attachments/assets/dce1228a-42fa-4704-9cc1-841b76f0c2ce" />
 
 **3.2. Самостійно: 4 складні запити з комбінаціями LIKE та логіки.**
-```
+```sql
 -- 1. Флагмани Pro/Plus версій без кабелів
 SELECT * FROM products WHERE (product_name ILIKE '%Pro%' OR product_name ILIKE '%Plus%') AND product_name NOT ILIKE '%кабель%';
 
@@ -252,14 +252,14 @@ SELECT * FROM products WHERE description ILIKE '%oled%' AND description ILIKE '%
 <img width="1534" height="851" alt="image" src="https://github.com/user-attachments/assets/1ef6310a-b498-49a7-bd53-4b09134596c8" />
 
 **3.3. Знайти товари дорожчі 20000 грн (категорії 1 або 2) АБО товари дешевші 5000 грн будь-якої категорії.**
-```
+```sql
 SELECT * FROM products 
 WHERE (unit_price > 20000 AND category_id IN (1, 2)) OR (unit_price < 5000);
 ```
 <img width="1537" height="852" alt="image" src="https://github.com/user-attachments/assets/b2d6107c-7fd6-4a91-b115-94c558d679d2" />
 
 **3.4. Самостійно: 3 запити з складними вкладеними умовами.**
-```
+```sql
 -- 1. Проблемні замовлення (дорога доставка або старі "завислі")
 SELECT * FROM orders WHERE (order_status = 'delivered' AND freight > 200) OR (order_status = 'pending' AND order_date < '2024-08-15');
 
@@ -272,7 +272,7 @@ SELECT * FROM employees WHERE (salary > 30000 AND title ILIKE '%директор
 <img width="1535" height="846" alt="image" src="https://github.com/user-attachments/assets/16fb932c-89ca-4187-9eea-5fd8837b3320" />
 
 **3.5. Самостійно: Комплексні аналітичні запити.**
-```
+```sql
 -- Звіт товарів з 5+ умовами: Доступна техніка високого класу, яка не знята з виробництва та є на складі (від 5 до 20 шт)
 SELECT * FROM products 
 WHERE unit_price > 10000 
@@ -293,7 +293,7 @@ ORDER BY registration_date;
 <img width="1535" height="856" alt="image" src="https://github.com/user-attachments/assets/82232f9c-fcb5-4133-8753-754fd06a1362" />
 
 **3.6. Самостійно: Дослідження даних (сегменти, географія, час).**
-```
+```sql
 -- Цінові сегменти:
 SELECT * FROM products WHERE unit_price < 10000; -- Бюджетні
 SELECT * FROM products WHERE unit_price BETWEEN 10000 AND 30000; -- Середній клас
@@ -313,7 +313,7 @@ SELECT * FROM orders WHERE order_date >= '2024-08-01'; -- Серпень (пот
 <img width="1537" height="850" alt="image" src="https://github.com/user-attachments/assets/f38b5f0b-1c4a-43e4-98c9-dd1045d065bc" />
 
 **3.7. Самостійно: 5 креативних запитів.**
-```
+```sql
 -- 1. Оцінка капіталізації складу (вартість залишків конкретних товарів)
 SELECT product_name, units_in_stock * unit_price AS total_inventory_value 
 FROM products ORDER BY total_inventory_value DESC LIMIT 5;
