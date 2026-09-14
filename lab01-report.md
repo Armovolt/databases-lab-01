@@ -18,7 +18,7 @@ WHERE table_schema = 'public'
 ORDER BY table_name;
 ```
 
-Результат: У базі даних створено 8 основних таблиць: categories, customers, employees, order_items, orders, products, regions, suppliers.
+**Результат:** У базі даних створено 8 основних таблиць: categories, customers, employees, order_items, orders, products, regions, suppliers.
 
 <img width="1532" height="850" alt="image" src="https://github.com/user-attachments/assets/295c1360-459f-44cd-b4c3-5b6aab622da8" />
 
@@ -28,4 +28,5 @@ ORDER BY table_name;
 SELECT * FROM customers;
 ```
 **Результат:** Отримано 15 записів клієнтів (фізичні та юридичні особи).
+
 <img width="1535" height="857" alt="image" src="https://github.com/user-attachments/assets/d37020c7-b977-434c-8bf1-ee7322dbbef0" />
