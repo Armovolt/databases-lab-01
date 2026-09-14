@@ -31,9 +31,26 @@ SELECT * FROM customers;
 
 <img width="1535" height="857" alt="image" src="https://github.com/user-attachments/assets/d37020c7-b977-434c-8bf1-ee7322dbbef0" />
 
-
 **1.2. Вивести тільки назви товарів і їхні ціни з таблиці products.**
 ```
 SELECT product_name, unit_price FROM products;
 ```
 <img width="1533" height="852" alt="image" src="https://github.com/user-attachments/assets/491f980e-2494-4838-839f-6e8a1579faf7" />
+
+**1.3. Показати контактні дані всіх співробітників.**
+```
+SELECT first_name, last_name, phone, email FROM employees;
+```
+<img width="1536" height="850" alt="image" src="https://github.com/user-attachments/assets/03d12212-13f6-4fb2-8427-6fd20c1b351b" />
+
+**1.4. Знайти всіх клієнтів з міста Київ.**
+```
+SELECT * FROM customers WHERE city = 'Київ';
+```
+<img width="1534" height="848" alt="image" src="https://github.com/user-attachments/assets/1ec04b4b-b8d5-420a-9737-7d2fee746d76" />
+
+**1.5. Вивести товари, які коштують більше 25000 грн.**
+```
+SELECT * FROM products WHERE unit_price > 25000;
+```
+<img width="1534" height="848" alt="image" src="https://github.com/user-attachments/assets/e98d89bd-3bbb-462c-b0e7-27cd749ec0ae" />
