@@ -10,8 +10,8 @@
 
 ### Список таблиць
 
-```
-sql -- Запит для отримання списку таблиць
+```sql
+-- Запит для отримання списку таблиць
 SELECT table_name
 FROM information_schema.tables
 WHERE table_schema = 'public'
