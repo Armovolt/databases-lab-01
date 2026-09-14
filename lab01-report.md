@@ -10,7 +10,7 @@
 
 ### Список таблиць
 
-```sql
+```markdown
 -- Запит для отримання списку таблиць
 SELECT table_name
 FROM information_schema.tables
