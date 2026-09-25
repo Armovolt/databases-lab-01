@@ -6,7 +6,7 @@
 **Група:** ІПЗ-33                                    
 **Обраний рівень складності:** 3                              
 
-**Посилання на репозиторій GitHub:** https://github.com/Armovolt/databases-lab-02
+**Посилання на репозиторій GitHub:** https://github.com/Armovolt/databases-lab-01/blob/main/lab02-report.md
 
 ## Виконання завдань
 
