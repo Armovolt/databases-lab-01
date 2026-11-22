@@ -154,3 +154,71 @@ SELECT * FROM readers ORDER BY reader_id;
 <img width="1436" height="926" alt="Знімок екрана 2026-11-16 191919" src="https://github.com/user-attachments/assets/27aeed76-3031-4b2f-9f35-4597651d0a7a" />
 
 ---
+
+#### Крок 3. Безпечне оновлення записів
+
+Продемонстровано практику попередньої вибірки (`SELECT`) та обов'язкового використання умови `WHERE` перед виконанням `UPDATE`.
+
+```sql
+-- 1. Перевірка поточного стану перед оновленням
+SELECT book_id, title, total_copies, available_copies
+FROM books
+WHERE book_id = 1;
+
+-- 2. Безпечне оновлення з умовою наявності примірників
+UPDATE books
+SET available_copies = available_copies - 1
+WHERE book_id = 1 AND available_copies > 0
+RETURNING book_id, title, total_copies, available_copies;
+
+-- 3. Перевірка скільки записів буде змінено за жанром
+SELECT COUNT(*) FROM books WHERE genre = 'Поезія';
+
+-- 4. Безпечне оновлення тільки для жанру 'Поезія'
+UPDATE books
+SET total_copies = total_copies + 2
+WHERE genre = 'Поезія'
+RETURNING book_id, title, genre, total_copies, available_copies;
+```
+
+**Пояснення:** Використання умови `WHERE` гарантує модифікацію лише цільових рядків. Без `WHERE` оператор `UPDATE` змінив би кількість примірників абсолютно для всіх книг у таблиці.
+
+**Результат виконання:**
+<img width="1435" height="937" alt="Знімок екрана 2026-11-16 192522" src="https://github.com/user-attachments/assets/190f8add-3bed-489d-9365-d80bb27cc3ae" />
+
+---
+
+#### Крок 4. Операції з транзакціями
+
+Реалізовано процес видачі книги читачу як єдину атомарну транзакцію.
+
+```sql
+BEGIN;
+
+-- Додаємо запис про видачу книги
+INSERT INTO lendings (book_id, reader_id, due_date)
+VALUES (1, 1, CURRENT_DATE + INTERVAL '14 days')
+RETURNING lending_id, book_id, reader_id, due_date;
+
+-- Зменшуємо кількість доступних примірників
+UPDATE books
+SET available_copies = available_copies - 1
+WHERE book_id = 1 AND available_copies > 0
+RETURNING book_id, title, available_copies;
+
+-- Перевірка коректності операцій перед фіксацією
+SELECT l.lending_id, b.title, r.first_name, r.last_name, l.due_date
+FROM lendings l
+JOIN books b ON l.book_id = b.book_id
+JOIN readers r ON l.reader_id = r.reader_id
+WHERE l.lending_id = 1;
+
+COMMIT;
+```
+
+**Аналіз транзакції:** Завдяки блоку `BEGIN ... COMMIT` операції створення запису в `lendings` та зменшення залишку в `books` виконалися атомарно (`available_copies` зменшилося з 7 до 6). У разі збою на будь-якому етапі база даних скасувала б обидві дії.
+
+**Результат виконання:**
+<img width="1437" height="928" alt="Знімок екрана 2026-11-16 192721" src="https://github.com/user-attachments/assets/778bd66d-4d7a-4dad-9ff0-ad4bf88a47b7" />
+
+---
