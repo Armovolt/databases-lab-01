@@ -222,3 +222,72 @@ COMMIT;
 <img width="1437" height="928" alt="Знімок екрана 2026-11-16 192721" src="https://github.com/user-attachments/assets/778bd66d-4d7a-4dad-9ff0-ad4bf88a47b7" />
 
 ---
+
+#### Крок 5. Демонстрація ROLLBACK
+
+Продемонстровано відкат транзакції при порушенні обмеження зовнішнього ключа (`ON DELETE RESTRICT`).
+
+```sql
+BEGIN;
+
+-- Перевірка наявності книг у автора з author_id = 1
+SELECT book_id, title FROM books WHERE author_id = 1;
+
+-- Спроба видалення автора, у якого є книги (викличе помилку)
+DELETE FROM authors WHERE author_id = 1;
+```
+
+*Отримане повідомлення про помилку:*
+`ERROR: update or delete on table "authors" violates foreign key constraint "books_author_id_fkey" on table "books"`
+
+```sql
+-- Відкат аварійної транзакції
+ROLLBACK;
+
+-- Перевірка, що запис автора залишився неушкодженим
+SELECT * FROM authors WHERE author_id = 1;
+```
+
+**Висновок:** Обмеження `ON DELETE RESTRICT` захистило дочірні записи від втрати батьківського ключа, а команда `ROLLBACK` вивела транзакцію зі стану помилки та повернула БД до початкового узгодженого стану.
+
+**Результат виконання:**
+<img width="1437" height="886" alt="Знімок екрана 2026-11-16 194818" src="https://github.com/user-attachments/assets/67aec60a-cd47-483c-8d24-b4d2e7f21c3c" />
+
+---
+
+#### Крок 6. Безпечне видалення
+
+Виконано видалення неактивних читачів з попередньою перевіркою відсутності активних боргів (неповернених книг).
+
+```sql
+-- 1. Перевірка читачів зі статусом Inactive без активних видач
+SELECT r.reader_id, r.first_name, r.last_name, r.status,
+       COUNT(l.lending_id) AS active_lendings
+FROM readers r
+LEFT JOIN lendings l ON r.reader_id = l.reader_id AND l.return_date IS NULL
+GROUP BY r.reader_id, r.first_name, r.last_name, r.status
+HAVING COUNT(l.lending_id) = 0 AND r.status = 'Inactive';
+
+-- 2. Створення тестового неактивного читача для демонстрації видалення
+INSERT INTO readers (first_name, last_name, email, library_card_number, status)
+VALUES ('Тестовий', 'Читач', 'test@example.com', 'LIB-TEST-001', 'Inactive')
+RETURNING reader_id, first_name, last_name, status;
+
+-- 3. Безпечне видалення з підзапитом перевірки активних видач
+DELETE FROM readers
+WHERE status = 'Inactive'
+  AND reader_id NOT IN (
+      SELECT DISTINCT reader_id
+      FROM lendings
+      WHERE return_date IS NULL
+  )
+RETURNING reader_id, first_name, last_name;
+
+-- 4. Перевірка після видалення
+SELECT COUNT(*) AS remaining_test_readers FROM readers WHERE email = 'test@example.com';
+```
+
+**Результат виконання:**
+<img width="1436" height="886" alt="Знімок екрана 2026-11-16 195556" src="https://github.com/user-attachments/assets/98180b0a-bf56-46a8-86e8-7cc47af37aca" />
+
+---
