@@ -291,3 +291,113 @@ SELECT COUNT(*) AS remaining_test_readers FROM readers WHERE email = 'test@examp
 <img width="1436" height="886" alt="Знімок екрана 2026-11-16 195556" src="https://github.com/user-attachments/assets/98180b0a-bf56-46a8-86e8-7cc47af37aca" />
 
 ---
+
+### Рівень 2. Розширена функціональність
+
+#### Крок 1. Додавання нових таблиць
+
+Створено таблиці для обліку бронювань книг (`reservations` з `ON DELETE CASCADE`) та журналювання змін (`audit_log` з типом `JSONB`).
+
+```sql
+-- Таблиця бронювань
+CREATE TABLE reservations (
+    reservation_id SERIAL PRIMARY KEY,
+    book_id INTEGER NOT NULL,
+    reader_id INTEGER NOT NULL,
+    reservation_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    expiration_date TIMESTAMP NOT NULL,
+    status VARCHAR(20) DEFAULT 'Active' CHECK (status IN ('Active', 'Fulfilled', 'Cancelled', 'Expired')),
+    FOREIGN KEY (book_id) REFERENCES books(book_id) ON DELETE CASCADE,
+    FOREIGN KEY (reader_id) REFERENCES readers(reader_id) ON DELETE CASCADE
+);
+
+-- Таблиця логування змін (аудиту)
+CREATE TABLE audit_log (
+    log_id SERIAL PRIMARY KEY,
+    table_name VARCHAR(50) NOT NULL,
+    operation VARCHAR(10) NOT NULL,
+    record_id INTEGER NOT NULL,
+    old_data JSONB,
+    new_data JSONB,
+    changed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    changed_by VARCHAR(100) DEFAULT CURRENT_USER
+);
+
+-- Перевірка створеної структури через системний каталог
+SELECT table_name, column_name, data_type, is_nullable
+FROM information_schema.columns
+WHERE table_name IN ('reservations', 'audit_log')
+ORDER BY table_name, ordinal_position;
+```
+
+**Результат виконання:**
+<img width="1437" height="932" alt="Знімок екрана 2026-11-16 195822" src="https://github.com/user-attachments/assets/0d23d18c-8714-4975-8d5f-aff31ca0b229" />
+
+---
+
+#### Крок 2. Складні транзакції
+
+Реалізовано комплексний бізнес-процес повернення книги читачем із одночасним оновленням залишків на складі та закриттям черги активного бронювання.
+
+```sql
+-- Підготовка тестового активного бронювання на книгу book_id = 1
+INSERT INTO reservations (book_id, reader_id, expiration_date)
+VALUES (1, 2, CURRENT_TIMESTAMP + INTERVAL '3 days')
+RETURNING reservation_id, book_id, reader_id, status;
+
+-- Складна транзакція повернення книги
+BEGIN;
+
+-- Крок 1: Фіксуємо дату повернення у видачі
+UPDATE lendings
+SET return_date = CURRENT_DATE
+WHERE lending_id = 1 AND return_date IS NULL
+RETURNING lending_id, book_id, reader_id, return_date;
+
+-- Крок 2: Збільшуємо кількість доступних примірників книги
+UPDATE books
+SET available_copies = available_copies + 1
+WHERE book_id = (SELECT book_id FROM lendings WHERE lending_id = 1)
+RETURNING book_id, title, available_copies;
+
+-- Крок 3: Перевіряємо найстаріше активне бронювання на цю книгу
+SELECT reservation_id, reader_id, reservation_date
+FROM reservations
+WHERE book_id = 1 AND status = 'Active'
+ORDER BY reservation_date
+LIMIT 1;
+
+-- Крок 4: Переводимо знайдене бронювання у статус 'Fulfilled'
+UPDATE reservations
+SET status = 'Fulfilled'
+WHERE reservation_id = (
+    SELECT reservation_id
+    FROM reservations
+    WHERE book_id = 1 AND status = 'Active'
+    ORDER BY reservation_date
+    LIMIT 1
+)
+RETURNING reservation_id, status;
+
+COMMIT;
+
+-- Зведена перевірка результату транзакції
+SELECT
+    l.lending_id,
+    b.title,
+    r1.first_name || ' ' || r1.last_name AS borrower,
+    l.return_date,
+    r2.first_name || ' ' || r2.last_name AS next_reader,
+    res.status AS reservation_status
+FROM lendings l
+JOIN books b ON l.book_id = b.book_id
+JOIN readers r1 ON l.reader_id = r1.reader_id
+LEFT JOIN reservations res ON b.book_id = res.book_id AND res.reservation_id = 1
+LEFT JOIN readers r2 ON res.reader_id = r2.reader_id
+WHERE l.lending_id = 1;
+```
+
+**Результат виконання:**
+<img width="1433" height="892" alt="Знімок екрана 2026-11-16 200837" src="https://github.com/user-attachments/assets/94b6e347-f779-4d25-90e2-c2c36539e212" />
+
+---
