@@ -103,6 +103,54 @@ CREATE TABLE lendings (
 **Результат створення структури:**
 <img width="1917" height="931" alt="01-create-tables" src="https://github.com/user-attachments/assets/c5046b10-70b4-4c26-915f-bd7bde335445" />
 
-![Створення таблиць](screenshots/01-create-tables.png)
+---
+
+#### Крок 2. Додавання тестових даних
+
+Виконано вставку початкових даних у всі створені таблиці.
+
+**Додавання авторів:**
+
+```sql
+INSERT INTO authors (first_name, last_name, birth_year, country)
+VALUES
+    ('Тарас', 'Шевченко', 1814, 'Україна'),
+    ('Іван', 'Франко', 1856, 'Україна'),
+    ('Леся', 'Українка', 1871, 'Україна'),
+    ('Михайло', 'Коцюбинський', 1864, 'Україна'),
+    ('Панас', 'Мирний', 1849, 'Україна');
+
+SELECT * FROM authors ORDER BY birth_year;
+```
+
+**Додавання книг:**
+
+```sql
+INSERT INTO books (isbn, title, author_id, publication_year, genre, total_copies, available_copies)
+VALUES
+    ('978-966-03-4561-2', 'Кобзар', 1, 1840, 'Поезія', 10, 8),
+    ('978-966-03-4562-9', 'Захар Беркут', 2, 1883, 'Історична проза', 5, 4),
+    ('978-966-03-4563-6', 'Лісова пісня', 3, 1911, 'Драма', 7, 7),
+    ('978-966-03-4564-3', 'Тіні забутих предків', 4, 1911, 'Повість', 6, 5),
+    ('978-966-03-4565-0', 'Хіба ревуть воли, як ясла повні', 5, 1880, 'Повість', 4, 4);
+
+SELECT * FROM books ORDER BY book_id;
+```
+
+**Додавання читачів:**
+
+```sql
+INSERT INTO readers (first_name, last_name, email, phone, library_card_number)
+VALUES
+    ('Олена', 'Петренко', 'olena.petrenko@email.com', '+380501234567', 'LIB-2024-001'),
+    ('Андрій', 'Коваленко', 'andrii.kovalenko@email.com', '+380502345678', 'LIB-2024-002'),
+    ('Марія', 'Сидоренко', 'maria.sydorenko@email.com', '+380503456789', 'LIB-2024-003'),
+    ('Іван', 'Мельник', 'ivan.melnyk@email.com', '+380504567890', 'LIB-2024-004');
+
+SELECT * FROM readers ORDER BY reader_id;
+```
+
+**Результат додавання даних:**
+<img width="1436" height="926" alt="Знімок екрана 2026-11-16 191919" src="https://github.com/user-attachments/assets/27aeed76-3031-4b2f-9f35-4597651d0a7a" />
 
 ---
