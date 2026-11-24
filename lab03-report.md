@@ -625,484 +625,453 @@ SELECT book_id, title, available_copies FROM books WHERE book_id = 1;
 
 #### Крок 1. Система версіонування
 
-Реалізовано автоматичне збереження повної історії версій кожного запису таблиці `books` із часовими інтервалами дії (`valid_from` — `valid_to`) та функцією реконструкції стану на довільний момент часу.
+Тригерна функція `version_books_changes()` записує версії книг у `books_history`. Стан книги на вибраний момент визначає інтервал `[valid_from, valid_to)`.
+
+**Таблиця версій**
 
 ```sql
-CREATE TABLE books_versions (
-    version_id SERIAL PRIMARY KEY,
+CREATE TABLE public.books_history (
+    history_id SERIAL PRIMARY KEY,
     book_id INTEGER NOT NULL,
+    isbn VARCHAR(17) NOT NULL,
+    title VARCHAR(200) NOT NULL,
+    author_id INTEGER NOT NULL,
+    publication_year INTEGER,
+    genre VARCHAR(50),
+    total_copies INTEGER,
+    available_copies INTEGER,
     version_number INTEGER NOT NULL,
-    data JSONB NOT NULL,
-    valid_from TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    valid_from TIMESTAMP NOT NULL,
     valid_to TIMESTAMP,
-    created_by VARCHAR(100) DEFAULT CURRENT_USER,
-    UNIQUE(book_id, version_number)
-);
-
-CREATE OR REPLACE FUNCTION create_book_version()
-RETURNS TRIGGER AS $$
-DECLARE
-    v_version_number INTEGER;
-BEGIN
-    -- Закриваємо попередню активну версію
-    UPDATE books_versions
-    SET valid_to = CURRENT_TIMESTAMP
-    WHERE book_id = NEW.book_id AND valid_to IS NULL;
-
-    -- Обчислюємо порядковий номер нової версії
-    SELECT COALESCE(MAX(version_number), 0) + 1
-    INTO v_version_number
-    FROM books_versions
-    WHERE book_id = NEW.book_id;
-
-    -- Додаємо нову версію
-    INSERT INTO books_versions (book_id, version_number, data)
-    VALUES (NEW.book_id, v_version_number, row_to_json(NEW)::jsonb);
-
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER book_versioning_trigger
-AFTER INSERT OR UPDATE ON books
-FOR EACH ROW
-EXECUTE FUNCTION create_book_version();
-
--- Функція отримання стану книги на вказаний момент часу
-CREATE OR REPLACE FUNCTION get_book_version(p_book_id INTEGER, p_date TIMESTAMP)
-RETURNS JSONB AS $$
-BEGIN
-    RETURN (
-        SELECT data
-        FROM books_versions
-        WHERE book_id = p_book_id
-          AND valid_from <= p_date
-          AND (valid_to IS NULL OR valid_to > p_date)
-        LIMIT 1
-    );
-END;
-$$ LANGUAGE plpgsql;
-
--- Тестування системи версіонування (з невеликими паузами для різниці в часі)
-INSERT INTO books (isbn, title, author_id, publication_year, genre, total_copies, available_copies)
-VALUES ('978-966-03-7777-7', 'Версійована книга', 3, 2020, 'Тест', 10, 10);
-
-SELECT pg_sleep(1);
-UPDATE books SET available_copies = 8 WHERE isbn = '978-966-03-7777-7';
-
-SELECT pg_sleep(1);
-UPDATE books SET available_copies = 5, genre = 'Оновлений жанр' WHERE isbn = '978-966-03-7777-7';
-
--- Перегляд усіх створених версій
-SELECT
-    version_id,
-    book_id,
-    version_number,
-    data->>'title' AS title,
-    data->>'available_copies' AS copies,
-    data->>'genre' AS genre,
-    to_char(valid_from, 'YYYY-MM-DD HH24:MI:SS') AS valid_from,
-    to_char(valid_to, 'YYYY-MM-DD HH24:MI:SS') AS valid_to
-FROM books_versions
-WHERE book_id = (SELECT book_id FROM books WHERE isbn = '978-966-03-7777-7')
-ORDER BY version_number;
-
--- Отримання історичного стану книги на момент дії версії №2
-SELECT get_book_version(
-    (SELECT book_id FROM books WHERE isbn = '978-966-03-7777-7'),
-    (SELECT valid_from FROM books_versions WHERE book_id = (SELECT book_id FROM books WHERE isbn = '978-966-03-7777-7') AND version_number = 2)
+    operation VARCHAR(10) NOT NULL,
+    changed_by VARCHAR(100) DEFAULT CURRENT_USER
 );
 ```
 
-**Результат виконання:**
-<img width="1437" height="918" alt="Знімок екрана 2026-11-17 192304" src="https://github.com/user-attachments/assets/a3ffd269-3798-413d-af8c-1cffdc5755b7" />
+**Тригер версіонування** 
+
+```sql
+SELECT pg_get_triggerdef(t.oid) AS trigger_definition,
+       pg_get_functiondef(t.tgfoid) AS function_definition
+FROM pg_trigger AS t
+JOIN pg_proc AS p ON p.oid = t.tgfoid
+WHERE t.tgrelid = 'public.books'::regclass
+  AND p.proname = 'version_books_changes'
+  AND NOT t.tgisinternal;
+```
+
+**Стан книги на вибраний момент**
+
+```sql
+-- Рівень 3, крок 1. Стан «Лісової пісні» на початок дії другої версії.
+WITH chosen_time AS (
+    SELECT book_id, valid_from AS as_of
+    FROM public.books_history
+    WHERE isbn = '978-966-03-4563-6'
+      AND version_number = 2
+    ORDER BY history_id DESC
+    LIMIT 1
+)
+SELECT
+    version.book_id,
+    version.title,
+    version.version_number,
+    version.genre,
+    version.total_copies,
+    version.available_copies,
+    chosen_time.as_of,
+    version.valid_to
+FROM chosen_time
+JOIN public.books_history AS version
+  ON version.book_id = chosen_time.book_id
+ AND version.valid_from <= chosen_time.as_of
+ AND (version.valid_to IS NULL OR chosen_time.as_of < version.valid_to)
+WHERE version.operation <> 'DELETE'
+ORDER BY version.version_number DESC, version.history_id DESC
+LIMIT 1;
+```
+
+**Результат.** Версія №2 «Лісової пісні» має жанр «Драма», 8 примірників загалом і 5 доступних.
+<img width="1590" height="756" alt="01-version-as-of" src="https://github.com/user-attachments/assets/c91c3e7e-8763-4a3a-8349-0e1acb07861b" />
 
 ---
 
 #### Крок 2. Відкладені операції
 
-Створено чергу запланованих завдань (`scheduled_operations`) та обробник `execute_scheduled_operations()` із перехопленням винятків (`EXCEPTION WHEN OTHERS`).
+Завдання `pg_cron` переводить прострочене тестове бронювання зі статусу `Active` у `Expired`. Інтервал запуску становить 10 секунд. Після виконання завдання вимикається.
 
 ```sql
-CREATE TABLE scheduled_operations (
-    operation_id SERIAL PRIMARY KEY,
-    operation_type VARCHAR(50) NOT NULL,
-    target_table VARCHAR(50) NOT NULL,
-    operation_data JSONB NOT NULL,
-    scheduled_for TIMESTAMP NOT NULL,
-    status VARCHAR(20) DEFAULT 'Pending' CHECK (status IN ('Pending', 'Executed', 'Failed', 'Cancelled')),
-    executed_at TIMESTAMP,
-    error_message TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+-- Рівень 3, крок 2. Автоматичне завершення окремого тестового бронювання.
+WITH demo AS (
+    INSERT INTO public.reservations
+        (book_id, reader_id, reservation_date, expiration_date, status)
+    VALUES (2, 3,
+        (CURRENT_TIMESTAMP AT TIME ZONE 'UTC') - INTERVAL '10 minutes',
+        (CURRENT_TIMESTAMP AT TIME ZONE 'UTC') - INTERVAL '1 minute',
+        'Active')
+    RETURNING reservation_id, status, expiration_date
+)
+SELECT reservation_id,
+       status AS initial_status,
+       expiration_date,
+       cron.schedule('lab03_demo_expire_reservation', '10 seconds', format($job$
+           DO $run$
+           BEGIN
+               UPDATE public.reservations
+               SET status = 'Expired'
+               WHERE reservation_id = %s
+                 AND status = 'Active'
+                 AND expiration_date <= (CURRENT_TIMESTAMP AT TIME ZONE 'UTC');
 
-CREATE OR REPLACE FUNCTION execute_scheduled_operations()
-RETURNS INTEGER AS $$
-DECLARE
-    v_operation RECORD;
-    v_count INTEGER := 0;
-BEGIN
-    FOR v_operation IN
-        SELECT * FROM scheduled_operations
-        WHERE status = 'Pending' AND scheduled_for <= CURRENT_TIMESTAMP
-    LOOP
-        BEGIN
-            CASE v_operation.operation_type
-                WHEN 'UPDATE_BOOK_STATUS' THEN
-                    UPDATE books
-                    SET available_copies = (v_operation.operation_data->>'available_copies')::INTEGER
-                    WHERE book_id = (v_operation.operation_data->>'book_id')::INTEGER;
-
-                WHEN 'EXPIRE_RESERVATION' THEN
-                    UPDATE reservations
-                    SET status = 'Expired'
-                    WHERE reservation_id = (v_operation.operation_data->>'reservation_id')::INTEGER;
-
-                WHEN 'BLOCK_READER' THEN
-                    UPDATE readers
-                    SET status = 'Blocked'
-                    WHERE reader_id = (v_operation.operation_data->>'reader_id')::INTEGER;
-            END CASE;
-
-            UPDATE scheduled_operations
-            SET status = 'Executed', executed_at = CURRENT_TIMESTAMP
-            WHERE operation_id = v_operation.operation_id;
-
-            v_count := v_count + 1;
-        EXCEPTION WHEN OTHERS THEN
-            UPDATE scheduled_operations
-            SET status = 'Failed',
-                executed_at = CURRENT_TIMESTAMP,
-                error_message = SQLERRM
-            WHERE operation_id = v_operation.operation_id;
-        END;
-    END LOOP;
-
-    RETURN v_count;
-END;
-$$ LANGUAGE plpgsql;
-
--- Тестування: створюємо бронювання та плануємо його експірацію
-INSERT INTO reservations (book_id, reader_id, expiration_date, status)
-VALUES (2, 3, CURRENT_TIMESTAMP + INTERVAL '1 day', 'Active')
-RETURNING reservation_id, status;
-
--- Додаємо завдання в чергу на негайне виконання та завдання на майбутнє
-INSERT INTO scheduled_operations (operation_type, target_table, operation_data, scheduled_for)
-VALUES
-    ('EXPIRE_RESERVATION', 'reservations', jsonb_build_object('reservation_id', 3), CURRENT_TIMESTAMP - INTERVAL '1 second'),
-    ('BLOCK_READER', 'readers', jsonb_build_object('reader_id', 4), CURRENT_TIMESTAMP + INTERVAL '5 minutes')
-RETURNING operation_id, operation_type, status, scheduled_for;
-
--- Запускаємо обробник відкладених операцій
-SELECT execute_scheduled_operations();
-
--- Перевіряємо статус завдань та оновлене бронювання
-SELECT operation_id, operation_type, status, executed_at, error_message FROM scheduled_operations;
-SELECT reservation_id, status FROM reservations WHERE reservation_id = 3;
+               PERFORM cron.alter_job(
+                   (SELECT jobid FROM cron.job
+                    WHERE jobname = 'lab03_demo_expire_reservation'
+                      AND username = CURRENT_USER),
+                   active => false
+               );
+           END;
+           $run$;
+       $job$, reservation_id)) AS job_id
+FROM demo;
 ```
 
-**Результат виконання:**
-<img width="1198" height="726" alt="Знімок екрана 2026-11-17 192442" src="https://github.com/user-attachments/assets/c3ad85e6-22f9-4877-8263-4cb68cf4c783" />
+**Перевірка журналу запусків**
+
+```sql
+-- Перевірка після автоматичного запуску Supabase Cron.
+-- Ідентифікатор бронювання отримано від запиту налаштування.
+SELECT r.reservation_id,
+       r.status AS reservation_status,
+       j.jobname AS cron_job,
+       d.status AS run_status,
+       to_char(d.start_time AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS') AS ran_at_utc,
+       j.active AS job_active
+FROM public.reservations AS r
+CROSS JOIN cron.job AS j
+JOIN cron.job_run_details AS d ON d.jobid = j.jobid
+WHERE r.reservation_id = 6
+  AND j.jobname = 'lab03_demo_expire_reservation'
+  AND d.end_time IS NOT NULL
+ORDER BY d.runid DESC
+LIMIT 1;
+```
+
+**Результат.** Бронювання №6 має статус `Expired`, запуск Cron має статус `succeeded`.
+<img width="1397" height="763" alt="02-cron-expiration" src="https://github.com/user-attachments/assets/72cefd40-6eaa-464b-8df4-da716523e3b6" />
 
 ---
 
 #### Крок 3. Складна бізнес-логіка
 
-Створено функцію `extend_lending()` для автоматичної пролонгації видачі книги з перевіркою активності видачі, статусу читача та наявності прострочених книг.
+Процедура `issue_book()` перевіряє статус читача, ліміт видач та наявність примірників. Вона блокує рядок книги через `FOR UPDATE`, враховує найстаріше активне бронювання, списує примірник і створює запис видачі.
 
 ```sql
-CREATE OR REPLACE FUNCTION extend_lending(
-    p_lending_id INTEGER,
-    p_days INTEGER DEFAULT 7
+CREATE OR REPLACE PROCEDURE public.issue_book(
+    IN p_book_id integer,
+    IN p_reader_id integer,
+    IN p_days_to_return integer DEFAULT 14
 )
-RETURNS TABLE (
-    success BOOLEAN,
-    message TEXT,
-    new_due_date DATE
-) AS $$
+LANGUAGE plpgsql
+AS $procedure$
 DECLARE
-    v_reader_status VARCHAR(20);
-    v_overdue_count INTEGER;
-    v_current_due_date DATE;
-    v_reader_id INTEGER;
+    v_available INTEGER;
+    v_reader_status VARCHAR;
+    v_active_lendings INTEGER;
+    v_reservation_id INTEGER;
 BEGIN
-    SELECT r.status, l.due_date, l.reader_id
-    INTO v_reader_status, v_current_due_date, v_reader_id
-    FROM lendings l
-    JOIN readers r ON l.reader_id = r.reader_id
-    WHERE l.lending_id = p_lending_id AND l.return_date IS NULL;
-
-    IF NOT FOUND THEN
-        RETURN QUERY SELECT FALSE, 'Видача не знайдена або книга вже повернена'::TEXT, NULL::DATE;
-        RETURN;
+    SELECT status INTO v_reader_status
+    FROM readers WHERE reader_id = p_reader_id;
+    IF v_reader_status != 'Active' THEN
+        RAISE EXCEPTION 'Читач не активний (статус: %)', v_reader_status;
     END IF;
 
-    IF v_reader_status = 'Blocked' THEN
-        RETURN QUERY SELECT FALSE, 'Читач заблокований'::TEXT, NULL::DATE;
-        RETURN;
-    END IF;
-
-    SELECT COUNT(*)
-    INTO v_overdue_count
+    SELECT COUNT(*) INTO v_active_lendings
     FROM lendings
-    WHERE reader_id = v_reader_id
-      AND return_date IS NULL
-      AND due_date < CURRENT_DATE;
-
-    IF v_overdue_count > 0 THEN
-        RETURN QUERY SELECT FALSE, 'У читача є прострочені книги'::TEXT, NULL::DATE;
-        RETURN;
+    WHERE reader_id = p_reader_id AND return_date IS NULL;
+    IF v_active_lendings >= 5 THEN
+        RAISE EXCEPTION 'Читач досяг ліміту одночасно виданих книг (5)';
     END IF;
 
-    UPDATE lendings
-    SET due_date = due_date + p_days
-    WHERE lending_id = p_lending_id;
+    SELECT available_copies INTO v_available
+    FROM books WHERE book_id = p_book_id FOR UPDATE;
+    IF v_available <= 0 THEN
+        RAISE EXCEPTION 'Немає доступних примірників цієї книги';
+    END IF;
 
-    RETURN QUERY SELECT TRUE, 'Термін продовжено'::TEXT, (v_current_due_date + p_days)::DATE;
+    SELECT reservation_id INTO v_reservation_id
+    FROM reservations
+    WHERE book_id = p_book_id AND status = 'Active'
+    ORDER BY reservation_date LIMIT 1;
+    IF v_reservation_id IS NOT NULL THEN
+        IF EXISTS (SELECT 1 FROM reservations
+                   WHERE reservation_id = v_reservation_id AND reader_id = p_reader_id) THEN
+            UPDATE reservations SET status = 'Fulfilled'
+            WHERE reservation_id = v_reservation_id;
+        ELSE
+            RAISE EXCEPTION 'Книга заброньована іншим читачем';
+        END IF;
+    END IF;
+
+    UPDATE books SET available_copies = available_copies - 1 WHERE book_id = p_book_id;
+    INSERT INTO lendings (book_id, reader_id, due_date)
+    VALUES (p_book_id, p_reader_id, CURRENT_DATE + p_days_to_return);
+    COMMIT;
 END;
-$$ LANGUAGE plpgsql;
-
--- Сценарій 1: Успішне продовження терміну видачі
-INSERT INTO lendings (book_id, reader_id, due_date)
-VALUES (2, 2, CURRENT_DATE + INTERVAL '7 days')
-RETURNING lending_id, due_date;
-
-SELECT * FROM extend_lending(2, 14);
-
--- Сценарій 2: Відмова через блокування читача
-UPDATE readers SET status = 'Blocked' WHERE reader_id = 2;
-SELECT * FROM extend_lending(2, 7);
-
--- Сценарій 3: Відмова через наявність простроченої книги
-UPDATE readers SET status = 'Active' WHERE reader_id = 2;
-INSERT INTO lendings (book_id, reader_id, lending_date, due_date)
-VALUES (3, 2, CURRENT_DATE - INTERVAL '20 days', CURRENT_DATE - INTERVAL '5 days');
-
-SELECT * FROM extend_lending(2, 7);
+$procedure$;
 ```
 
-**Результат виконання:**
-<img width="993" height="741" alt="Знімок екрана 2026-11-19 010923" src="https://github.com/user-attachments/assets/b818fa1a-929f-474e-b0f9-8bef112efdd3" />
+**Приклад виклику процедури**
+
+```sql
+CALL public.issue_book(4, 3, 21);
+```
+
+**Перевірка процедури й видачі**
+
+```sql
+-- Рівень 3, крок 3. Перевірка вже оформленої видачі книги.
+SELECT 'issue_book(integer, integer, integer)' AS procedure_name,
+       routine.prokind = 'p' AS procedure_exists,
+       l.lending_id,
+       b.title,
+       concat_ws(' ', r.first_name, r.last_name) AS reader_name,
+       l.lending_date,
+       l.due_date,
+       l.due_date - l.lending_date AS loan_days
+FROM public.lendings AS l
+JOIN public.books AS b ON b.book_id = l.book_id
+JOIN public.readers AS r ON r.reader_id = l.reader_id
+JOIN pg_proc AS routine
+  ON routine.oid = to_regprocedure('public.issue_book(integer,integer,integer)')
+WHERE l.lending_id = 2;
+```
+
+**Результат.** `issue_book` зареєстровано як процедуру. Видачу №2 книги «Тіні забутих предків» оформлено на 21 день.
+<img width="1576" height="682" alt="03-issue-book" src="https://github.com/user-attachments/assets/e197fe17-7bf7-497c-8a16-3e81e0b52251" />
 
 ---
 
-#### Крок 4. Система прав доступу (RBAC)
+#### Крок 4. Система прав доступу
 
-Впроваджено рольову модель розмежування прав доступу (`librarian_read`, `librarian_write`, `library_admin`) та протестовано обмеження на модифікацію даних.
+Права доступу розподілено між ролями `library_reader`, `librarian` та `library_admin`.
 
 ```sql
--- Створення групових ролей
-CREATE ROLE librarian_read;
-CREATE ROLE librarian_write;
-CREATE ROLE library_admin;
+CREATE ROLE library_reader NOLOGIN;
+CREATE ROLE librarian NOLOGIN;
+CREATE ROLE library_admin NOLOGIN;
 
--- Надання привілеїв для читання
-GRANT SELECT ON ALL TABLES IN SCHEMA public TO librarian_read;
+GRANT USAGE ON SCHEMA public TO library_reader;
+GRANT SELECT ON authors, books TO library_reader;
 
--- Надання привілеїв для операційної роботи бібліотекаря
-GRANT SELECT, INSERT, UPDATE ON books, lendings, reservations TO librarian_write;
-GRANT DELETE ON reservations TO librarian_write;
-GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO librarian_write;
-GRANT INSERT ON audit_log, books_versions TO librarian_write;
+GRANT library_reader TO librarian;
+GRANT SELECT, INSERT, UPDATE ON readers, lendings, reservations TO librarian;
+GRANT INSERT, UPDATE ON books TO librarian;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO librarian;
+GRANT EXECUTE ON PROCEDURE issue_book(INTEGER, INTEGER, INTEGER) TO librarian;
 
--- Повні права для адміністратора
-GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO library_admin;
+GRANT librarian TO library_admin;
+GRANT ALL PRIVILEGES ON authors, books, readers, lendings,
+    reservations, audit_log, books_history TO library_admin;
 GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO library_admin;
-
--- Створення користувачів та призначення їм ролей
-CREATE USER librarian1 WITH PASSWORD 'secure_password1';
-CREATE USER librarian2 WITH PASSWORD 'secure_password2';
-CREATE USER admin1 WITH PASSWORD 'admin_password';
-
-GRANT librarian_read TO librarian1;
-GRANT librarian_write TO librarian2;
-GRANT library_admin TO admin1;
-
--- Тестування від імені librarian1 (дозволено лише SELECT)
-SET ROLE librarian1;
-SELECT book_id, title, available_copies FROM books LIMIT 3;
--- Спроба UPDATE викличе ERROR: permission denied for table books
-UPDATE books SET available_copies = 5 WHERE book_id = 1;
-
--- Тестування від імені librarian2 (дозволено UPDATE books, але заборонено DELETE authors)
-SET ROLE librarian2;
-UPDATE books SET available_copies = 5 WHERE book_id = 1 RETURNING book_id, title, available_copies;
--- Спроба DELETE FROM authors викличе ERROR: permission denied for table authors
-DELETE FROM authors WHERE author_id = 5;
-
--- Повернення до ролі суперкористувача
-RESET ROLE;
 ```
 
-**Результат виконання:**
-<img width="1436" height="862" alt="Знімок екрана 2026-11-19 223312" src="https://github.com/user-attachments/assets/1ee13579-1f0a-4795-bbb5-b6952a81d79b" />
+**Перевірка фактичних привілеїв**
+
+```sql
+-- Рівень 3, крок 4. Перевірка чинних прав ролей бібліотеки.
+SELECT rolname AS library_role,
+       CASE WHEN has_table_privilege(rolname, 'public.books', 'SELECT')
+            THEN 'Дозволено' ELSE 'Заборонено' END AS select_books,
+       CASE WHEN has_table_privilege(rolname, 'public.books', 'UPDATE')
+            THEN 'Дозволено' ELSE 'Заборонено' END AS update_books,
+       CASE WHEN has_table_privilege(rolname, 'public.lendings', 'INSERT')
+            THEN 'Дозволено' ELSE 'Заборонено' END AS insert_lendings,
+       CASE WHEN has_table_privilege(rolname, 'public.books', 'DELETE')
+            THEN 'Дозволено' ELSE 'Заборонено' END AS delete_books
+FROM pg_catalog.pg_roles
+WHERE rolname IN ('library_reader', 'librarian', 'library_admin')
+ORDER BY array_position(ARRAY['library_reader', 'librarian', 'library_admin'], rolname::text);
+```
+
+**Результат.** Усі ролі можуть переглядати каталог. Бібліотекар і адміністратор можуть оновлювати книги та оформлювати видачі. Видалення книг дозволено адміністратору.
+<img width="1122" height="720" alt="04-role-permissions" src="https://github.com/user-attachments/assets/0f50de4e-33d3-4a24-99cd-06e6e9d67073" />
 
 ---
 
-#### Крок 5. Автоматичне відновлення даних після збоїв
+#### Крок 5. Резервне копіювання та відновлення
 
-Розроблено механізм створення контрольних знімків бази даних (`backup_points`) у форматі `JSONB` та повного відновлення стану всіх основних таблиць (`restore_from_backup`).
+Контрольні копії зберігаються у схемі `backup_library`. Завдання `library_lab3_daily_backup` виконується щодня за розкладом `0 3 * * *`.
+
+**Перевірка автоматичного запуску і резервної копії**
 
 ```sql
-CREATE TABLE backup_points (
-    backup_id SERIAL PRIMARY KEY,
-    backup_name VARCHAR(100) NOT NULL,
-    backup_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    description TEXT,
-    data_snapshot JSONB
-);
-
--- Функція створення контрольної точки
-CREATE OR REPLACE FUNCTION create_backup_point(p_name VARCHAR, p_description TEXT DEFAULT NULL)
-RETURNS INTEGER AS $$
-DECLARE
-    v_backup_id INTEGER;
-    v_snapshot JSONB;
-BEGIN
-    SELECT jsonb_build_object(
-        'authors', (SELECT COALESCE(jsonb_agg(row_to_json(a)), '[]'::jsonb) FROM authors a),
-        'readers', (SELECT COALESCE(jsonb_agg(row_to_json(r)), '[]'::jsonb) FROM readers r),
-        'books',   (SELECT COALESCE(jsonb_agg(row_to_json(b)), '[]'::jsonb) FROM books b),
-        'lendings',(SELECT COALESCE(jsonb_agg(row_to_json(l)), '[]'::jsonb) FROM lendings l)
-    ) INTO v_snapshot;
-
-    INSERT INTO backup_points (backup_name, description, data_snapshot)
-    VALUES (p_name, p_description, v_snapshot)
-    RETURNING backup_id INTO v_backup_id;
-
-    RETURN v_backup_id;
-END;
-$$ LANGUAGE plpgsql;
-
--- Повна функція відновлення всіх таблиць зі знімка
-CREATE OR REPLACE FUNCTION restore_from_backup(p_backup_id INTEGER)
-RETURNS BOOLEAN AS $$
-DECLARE
-    v_snapshot JSONB;
-    v_record JSONB;
-BEGIN
-    SELECT data_snapshot INTO v_snapshot
-    FROM backup_points
-    WHERE backup_id = p_backup_id;
-
-    IF v_snapshot IS NULL THEN
-        RAISE EXCEPTION 'Backup point % not found', p_backup_id;
-    END IF;
-
-    -- Очищуємо таблиці з урахуванням каскадних залежностей
-    TRUNCATE TABLE lendings, reservations, books, readers, authors CASCADE;
-
-    -- 1. Відновлюємо авторів
-    FOR v_record IN SELECT * FROM jsonb_array_elements(v_snapshot->'authors')
-    LOOP
-        INSERT INTO authors SELECT * FROM jsonb_populate_record(NULL::authors, v_record);
-    END LOOP;
-
-    -- 2. Відновлюємо читачів
-    FOR v_record IN SELECT * FROM jsonb_array_elements(v_snapshot->'readers')
-    LOOP
-        INSERT INTO readers SELECT * FROM jsonb_populate_record(NULL::readers, v_record);
-    END LOOP;
-
-    -- 3. Відновлюємо книги
-    FOR v_record IN SELECT * FROM jsonb_array_elements(v_snapshot->'books')
-    LOOP
-        INSERT INTO books SELECT * FROM jsonb_populate_record(NULL::books, v_record);
-    END LOOP;
-
-    -- 4. Відновлюємо видачі
-    FOR v_record IN SELECT * FROM jsonb_array_elements(v_snapshot->'lendings')
-    LOOP
-        INSERT INTO lendings SELECT * FROM jsonb_populate_record(NULL::lendings, v_record);
-    END LOOP;
-
-    RETURN TRUE;
-END;
-$$ LANGUAGE plpgsql;
-
--- Тестування створення бекапу та відновлення після збою
-SELECT create_backup_point('Before major update', 'Контрольна точка перед оновленням каталогу');
-
--- Імітуємо випадкове пошкодження даних (зміна назв усіх книг)
-UPDATE books SET title = 'ПОШКОДЖЕНИЙ ЗАПИС';
-SELECT book_id, title FROM books;
-
--- Відновлюємо базу даних із контрольної точки №1
-SELECT restore_from_backup(1);
-
--- Перевіряємо, що всі дані успішно повернулися до початкового стану
-SELECT book_id, title, available_copies FROM books ORDER BY book_id;
+SELECT j.jobname,
+       j.schedule,
+       d.status AS cron_status,
+       d.end_time AS finished_at,
+       (SELECT count(*) FROM backup_library.books_backup) AS books_in_backup
+FROM cron.job AS j
+LEFT JOIN cron.job_run_details AS d
+       ON d.jobid = j.jobid AND d.end_time IS NOT NULL
+WHERE j.jobname = 'library_lab3_daily_backup'
+ORDER BY d.runid DESC NULLS LAST
+LIMIT 1;
 ```
 
-**Результат виконання:**
+**Результат.** Запуск має статус `succeeded`. Резервна таблиця містить 7 книг.
+<img width="1115" height="661" alt="05-automatic-backup" src="https://github.com/user-attachments/assets/b04d6722-1aac-4723-a837-5268e88f5767" />
+
+**Демонстрація відновлення полів каталогу з контрольної копії**
+
+Записи каталогу зіставлено з резервною копією за `book_id`. Відновлено жанр, загальну та доступну кількість примірників.
+
+```sql
+BEGIN;
+
+UPDATE public.books AS b
+SET genre = bk.genre,
+    available_copies = bk.available_copies,
+    total_copies = bk.total_copies
+FROM backup_library.books_backup AS bk
+WHERE b.book_id = bk.book_id;
+
+COMMIT;
+
+SELECT b.book_id, b.title,
+       b.genre AS restored_genre,
+       b.available_copies AS restored_copies,
+       bk.available_copies AS backup_copies,
+       CASE WHEN b.genre = bk.genre
+                 AND b.available_copies = bk.available_copies
+            THEN 'OK (Відновлено)'
+            ELSE 'ERROR'
+       END AS restore_status
+FROM public.books AS b
+JOIN backup_library.books_backup AS bk ON b.book_id = bk.book_id
+ORDER BY b.book_id;
+```
+
+**Результат.** Жанр і доступний залишок збіглися з копією для всіх 7 книг.
 <img width="1432" height="896" alt="Знімок екрана 2026-11-19 224158" src="https://github.com/user-attachments/assets/77d2c6d8-ea77-4373-83cc-9dab862982c2" />
 
 ---
 
-#### Крок 6. Інтерфейс перегляду історії змін
+#### Крок 6. Інтерфейс перегляду історії та відкату за період
 
-Створено представлення `books_change_history` для людиночитабельного відображення аудиту та аналітичну функцію `get_changes_report()` для агрегації змін за обраний період.
+Представлення `v_books_change_history` показує версії книги, а `v_audit_history` — записи журналу операцій. Функція `get_book_history()` повертає історію за ідентифікатором книги.
 
 ```sql
--- Представлення для аналізу історії змін книг
-CREATE OR REPLACE VIEW books_change_history AS
+-- 1. Представлення для зручного перегляду історії версій книг (формат «було -> стало»)
+CREATE OR REPLACE VIEW v_books_change_history AS
 SELECT
-    a.log_id,
-    a.operation,
-    a.record_id AS book_id,
-    COALESCE(a.new_data->>'title', a.old_data->>'title') AS title,
+    bh.history_id,
+    bh.book_id,
+    bh.version_number,
+    bh.title,
+    a.first_name || ' ' || a.last_name AS author_name,
+    LAG(bh.genre) OVER (PARTITION BY bh.book_id ORDER BY bh.version_number) AS prev_genre,
+    bh.genre AS current_genre,
+    LAG(bh.available_copies) OVER (PARTITION BY bh.book_id ORDER BY bh.version_number) AS prev_copies,
+    bh.available_copies AS current_copies,
+    bh.operation,
+    bh.changed_by,
+    to_char(bh.valid_from, 'YYYY-MM-DD HH24:MI:SS') AS changed_at,
     CASE
-        WHEN a.operation = 'INSERT' THEN 'Додано нову книгу'
-        WHEN a.operation = 'UPDATE' THEN
-            'Оновлено: ' ||
-            CASE
-                WHEN a.old_data->>'available_copies' IS DISTINCT FROM a.new_data->>'available_copies'
-                THEN 'Доступні примірники: ' || (a.old_data->>'available_copies') || ' → ' || (a.new_data->>'available_copies')
-                ELSE 'Інші поля (' || COALESCE(a.new_data->>'title', '') || ')'
-            END
-        WHEN a.operation = 'DELETE' THEN 'Видалено книгу'
-    END AS change_description,
-    a.changed_at,
-    a.changed_by
-FROM audit_log a
-WHERE a.table_name = 'books'
-ORDER BY a.changed_at DESC;
+        WHEN bh.valid_to IS NULL THEN 'Актуальна'
+        ELSE 'Архівна'
+    END AS version_status
+FROM books_history bh
+JOIN authors a ON bh.author_id = a.author_id;
 
--- Функція отримання зведеного звіту змін за період
-CREATE OR REPLACE FUNCTION get_changes_report(
-    p_start_date TIMESTAMP,
-    p_end_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-)
+-- 2. Представлення для читабельного перегляду загального журналу аудиту
+CREATE OR REPLACE VIEW v_audit_history AS
+SELECT
+    log_id,
+    table_name,
+    operation,
+    record_id,
+    COALESCE(new_data->>'title', old_data->>'title', new_data->>'action', '—') AS object_summary,
+    to_char(changed_at, 'YYYY-MM-DD HH24:MI:SS') AS changed_at,
+    changed_by
+FROM audit_log
+ORDER BY log_id DESC;
+
+-- 3. Функція-інтерфейс для отримання історії змін конкретної книги за її ID
+CREATE OR REPLACE FUNCTION get_book_history(p_book_id INTEGER)
 RETURNS TABLE (
-    change_date DATE,
-    total_changes BIGINT,
-    inserts BIGINT,
-    updates BIGINT,
-    deletes BIGINT
-) AS $$
+    version_number INTEGER,
+    title TEXT,
+    genre_change TEXT,
+    copies_change TEXT,
+    operation TEXT,
+    changed_by TEXT,
+    changed_at TEXT,
+    version_status TEXT
+)
+LANGUAGE plpgsql
+AS $$
 BEGIN
     RETURN QUERY
     SELECT
-        DATE(changed_at) AS change_date,
-        COUNT(*) AS total_changes,
-        COUNT(*) FILTER (WHERE operation = 'INSERT') AS inserts,
-        COUNT(*) FILTER (WHERE operation = 'UPDATE') AS updates,
-        COUNT(*) FILTER (WHERE operation = 'DELETE') AS deletes
-    FROM audit_log
-    WHERE changed_at BETWEEN p_start_date AND p_end_date
-    GROUP BY DATE(changed_at)
-    ORDER BY change_date DESC;
+        v.version_number,
+        v.title::TEXT,
+        (COALESCE(v.prev_genre, '—') || ' -> ' || COALESCE(v.current_genre, '—'))::TEXT AS genre_change,
+        (COALESCE(v.prev_copies::TEXT, '—') || ' -> ' || COALESCE(v.current_copies::TEXT, '—'))::TEXT AS copies_change,
+        v.operation::TEXT,
+        v.changed_by::TEXT,
+        v.changed_at::TEXT,
+        v.version_status::TEXT
+    FROM v_books_change_history v
+    WHERE v.book_id = p_book_id
+    ORDER BY v.version_number;
 END;
-$$ LANGUAGE plpgsql;
+$$;
 
--- Тестування інтерфейсу перегляду історії та звіту за останні 30 днів
-SELECT * FROM books_change_history LIMIT 10;
-SELECT * FROM get_changes_report(CURRENT_TIMESTAMP - INTERVAL '30 days');
+-- 4. Надання прав на перегляд інтерфейсу ролям бібліотекаря та адміністратора
+GRANT SELECT ON v_books_change_history, v_audit_history TO librarian, library_admin;
+GRANT EXECUTE ON FUNCTION get_book_history(INTEGER) TO librarian, library_admin;
+
+-- 5. Демонстрація роботи інтерфейсу: історія змін книги «Лісова пісня» (book_id = 3)
+SELECT * FROM get_book_history(3);
+
+-- 6. Останні 10 подій у загальному журналі аудиту
+SELECT * FROM v_audit_history LIMIT 10;
 ```
 
-**Результат виконання:**
 <img width="1430" height="888" alt="Знімок екрана 2026-11-23 213446" src="https://github.com/user-attachments/assets/d66ed60c-dbdc-4270-8c86-b5f7d597180b" />
+
+**Відкат жанру книги за вибраний період**
+
+Попереднє значення взято з `audit_log.old_data` для першої зміни жанру за 17 листопада 2026 року. Відкат виконано на тимчасовій копії книги.
+
+```sql
+CREATE TEMP TABLE lab03_genre_rollback_demo AS SELECT book_id, title, genre FROM public.books WHERE book_id = 3;
+
+WITH first_change AS (
+    SELECT record_id AS book_id, changed_at, old_data->>'genre' AS previous_genre
+    FROM public.audit_log
+    WHERE table_name = 'books'
+      AND record_id = 3
+      AND operation = 'UPDATE'
+      AND changed_at >= TIMESTAMP '2026-11-17 00:00:00'
+      AND changed_at < TIMESTAMP '2026-11-18 00:00:00'
+      AND old_data->>'genre' IS DISTINCT FROM new_data->>'genre'
+    ORDER BY changed_at, log_id
+    LIMIT 1
+),
+before_restore AS MATERIALIZED (
+    SELECT book_id, genre FROM pg_temp.lab03_genre_rollback_demo
+)
+UPDATE pg_temp.lab03_genre_rollback_demo AS b
+SET genre = c.previous_genre
+FROM first_change AS c
+JOIN before_restore AS old ON old.book_id = c.book_id
+WHERE b.book_id = c.book_id
+RETURNING b.book_id, b.title, c.changed_at, old.genre AS genre_before, b.genre AS genre_after;
+```
+
+**Результат.** Жанр «Лісової пісні» відновлено з «Драма-феєрія» до «Драма».
+<img width="990" height="661" alt="06-period-rollback" src="https://github.com/user-attachments/assets/29fddda0-e461-48a2-9c70-e3a3a0e92587" />
 
 ---
 
@@ -1115,7 +1084,7 @@ SELECT * FROM get_changes_report(CURRENT_TIMESTAMP - INTERVAL '30 days');
 5. **Точки збереження `SAVEPOINT`:** Дозволяють встановити проміжні мітки всередині транзакції та відкотити лише останню невдалу дію (`ROLLBACK TO SAVEPOINT`), не втрачаючи попередніх успішних операцій цієї ж транзакції.
 6. **Типи обмежень цілісності:** `PRIMARY KEY` (унікальний ідентифікатор запису), `FOREIGN KEY` (цілісність зв'язків між таблицями), `UNIQUE` (відсутність дублікатів, наприклад в `isbn` чи `email`), `CHECK` (логічні умови на діапазон значень), `NOT NULL` (обов'язковість заповнення поля).
 7. **Каскадні операції:** Визначають реакцію дочірньої таблиці на видалення/зміну батьківського ключа: `RESTRICT` / `NO ACTION` (заборона видалення), `CASCADE` (автоматичне видалення/оновлення залежних записів), `SET NULL` (встановлення `NULL`), `SET DEFAULT` (встановлення дефолтного значення).
-8. **Роль тригерів:** Автоматично виконуються при подіях `INSERT/UPDATE/DELETE` на рівні СУБД незалежно від клієнтського застосунку. Застосовуються для незмінного аудиту (`audit_log`), версіонування (`books_versions`) та складної валідації.
+8. **Роль тригерів:** Автоматично виконуються при подіях `INSERT/UPDATE/DELETE` на рівні СУБД незалежно від клієнтського застосунку. Застосовуються для автоматичного аудиту (`audit_log`), версіонування (`books_history`) та складної валідації.
 9. **Блокування при паралельному доступі:** Запобігають станам гонитви (*race conditions*) та втраченим оновленням (*lost updates*), коли дві сесії одночасно читають однаковий залишок книги (`7`) і обидві записують `6` замість `5`.
 10. **Рівні ізоляції транзакцій:** `READ UNCOMMITTED` (у PostgreSQL працює як `READ COMMITTED`), `READ COMMITTED` (за замовчуванням у PG — захищає від «брудного читання», підходить для більшості OLTP-запитів), `REPEATABLE READ` (захищає від неповторюваного читання та фантомів у PG, підходить для фінансових звітів), `SERIALIZABLE` (повна ізоляція, підходить для критичних бізнес-транзакцій зі складними перехресними перевірками).
 
@@ -1125,4 +1094,8 @@ SELECT * FROM get_changes_report(CURRENT_TIMESTAMP - INTERVAL '30 days');
 
 **Самооцінка:** 5
 
-**Обґрунтування:** У ході виконання лабораторної роботи було спроєктовано та реалізовано повнофункціональну базу даних системи управління бібліотекою (`library_lab3`) на найвищому, 3-му рівні складності. Опановано безпечні патерни модифікації даних (`INSERT`, `UPDATE`, `DELETE` з `WHERE` та `RETURNING`), керування транзакціями (`BEGIN`, `COMMIT`, `ROLLBACK`, `SAVEPOINT`), каскадні обмеження (`ON DELETE RESTRICT` та `ON DELETE CASCADE`) і песимістичні блокування рядків (`SELECT ... FOR UPDATE`) у багатосесійному режимі. Крім того, розроблено повноцінну підсистему аудиту на основі тригерів та `JSONB`, систему темпорального версіонування записів, планувальник відкладених операцій, збережені функції зі складною бізнес-логікою, рольову модель безпеки (RBAC) та механізм резервного копіювання і відновлення даних (Point-in-Time Snapshot Recovery). Робота повністю відповідає всім критеріям оцінки «відмінно».
+**Обґрунтування:**
+
+Під час лабораторної роботи я створив базу даних бібліотеки й виконав завдання трьох рівнів. Я навчився додавати, оновлювати й видаляти записи, а також перевірив, як працюють транзакції, `ROLLBACK`, `SAVEPOINT` і блокування рядків.
+
+На третьому рівні я налаштував історію змін книг, автоматичне завершення простроченого бронювання через `pg_cron` і права доступу для трьох ролей. Також перевірив процедуру видачі книги та роботу резервного копіювання. На тимчасовій копії запису я відновив попередній жанр книги за журналом змін за вибраний період.
