@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+{% block title %}Каталог · Електронна бібліотека{% endblock %}
+{% block content %}
+<div class="heading">
+  <div><h1>Каталог видань</h1><p class="muted">Пошук книг, авторів і доступних примірників.</p></div>
+  {% if g.user and g.user.role in staff %}
+    <div class="actions"><a class="btn outline" href="{{ url_for('export_catalog') }}">Експорт PDF</a><a class="btn" href="{{ url_for('book_form') }}">Додати книгу</a></div>
+  {% endif %}
+</div>
+<form class="filters" method="get">
+  <label>Пошук<input name="q" type="search" value="{{ query }}" placeholder="Назва, автор або ISBN" maxlength="160"></label>
+  <label>Жанр<select name="genre"><option value="">Усі жанри</option>{% for row in genres %}<option value="{{ row.genre }}" {{ 'selected' if row.genre == genre }}>{{ row.genre }}</option>{% endfor %}</select></label>
+  <label>Сортування<select name="sort">
+    <option value="title" {{ 'selected' if sort == 'title' }}>За назвою</option>
+    <option value="newest" {{ 'selected' if sort == 'newest' }}>Спочатку новіші</option>
+    <option value="available" {{ 'selected' if sort == 'available' }}>За наявністю</option>
+  </select></label>
+  <button>Знайти</button>
+</form>
+<section class="panel results">
+  <div class="panel-head"><h2>Видання</h2><span class="badge">Знайдено: {{ books|length }}</span></div>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Назва й автори</th><th>Жанр</th><th>Рік</th><th>Доступно</th></tr></thead>
+    <tbody>
+    {% for book in books %}
+      <tr><td><a class="book-title" href="{{ url_for('book_detail', book_id=book.book_id) }}">{{ book.title }}</a><small>{{ book.authors }}</small></td>
+      <td>{{ book.genre }}</td><td>{{ book.published_year }}</td>
+      <td><span class="badge {{ 'empty' if not book.available_copies }}">{{ book.available_copies }} / {{ book.total_copies }}</span></td></tr>
+    {% else %}<tr><td colspan="4">За цими умовами книг не знайдено.</td></tr>{% endfor %}
+    </tbody>
+  </table></div>
+</section>
+{% endblock %}

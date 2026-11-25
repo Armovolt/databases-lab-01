@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="uk">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}Електронна бібліотека{% endblock %}</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+<script defer src="{{ url_for('static', filename='validation.js') }}"></script>
+<body>
+<header class="top">
+  <div class="wrap navigation">
+    <a class="brand" href="{{ url_for('index') }}"><span aria-hidden="true">▤</span> Електронна бібліотека</a>
+    <nav aria-label="Основна навігація">
+      <a href="{{ url_for('index') }}">Каталог</a>
+      <a href="{{ url_for('statistics') }}">Статистика</a>
+      {% if g.user and g.user.role in staff %}<a href="{{ url_for('circulation') }}">Видачі</a>{% endif %}
+      {% if g.user and g.user.role == 'admin' %}<a href="{{ url_for('audit') }}">Журнал</a>{% endif %}
+    </nav>
+    {% if g.user %}
+      <div class="account"><span class="badge">{{ {'reader':'Читач', 'librarian':'Бібліотекар', 'admin':'Адміністратор'}[g.user.role] }}</span>
+      <form method="post" action="{{ url_for('logout') }}"><input type="hidden" name="csrf" value="{{ csrf_token }}"><button class="quiet">Вийти</button></form></div>
+    {% else %}
+      <a class="btn outline" href="{{ url_for('login') }}">Увійти</a>
+    {% endif %}
+  </div>
+</header>
+<main class="wrap">
+  {% for category, message in get_flashed_messages(with_categories=true) %}
+    <p class="notice {{ category }}" role="status">{{ message }}</p>
+  {% endfor %}
+  {% block content %}{% endblock %}
+</main>
+</body>
+</html>

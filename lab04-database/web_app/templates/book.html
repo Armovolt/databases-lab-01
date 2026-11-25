@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+{% block title %}{{ book.title }} · Електронна бібліотека{% endblock %}
+{% block content %}
+<div class="heading">
+  <div><h1>{{ book.title }}</h1><p class="muted">{{ book.authors }} · {{ book.published_year }} · {{ book.genre }}</p></div>
+  {% if g.user and g.user.role in staff %}
+    <div class="actions">
+      <a class="btn outline" href="{{ url_for('book_form', book_id=book.book_id) }}">Редагувати</a>
+      <form method="post" action="{{ url_for('book_delete', book_id=book.book_id) }}" data-confirm>
+        <input type="hidden" name="csrf" value="{{ csrf_token }}"><button class="danger">Видалити</button>
+      </form>
+    </div>
+  {% endif %}
+</div>
+<section class="panel">
+  <div class="panel-head"><h2>Примірники</h2><span class="badge">ISBN {{ book.isbn }}</span></div>
+  <table><thead><tr><th>ID</th><th>Інвентарний номер</th><th>Стан</th></tr></thead>
+  <tbody>{% for copy in copies %}<tr><td>{{ copy.copy_id }}</td><td>{{ copy.inventory_code }}</td><td>{{ 'Списано' if copy.retired else ('Видано' if copy.on_loan else 'Доступний') }}</td></tr>
+  {% else %}<tr><td colspan="3">Примірники ще не зареєстровані.</td></tr>{% endfor %}</tbody></table>
+</section>
+{% endblock %}

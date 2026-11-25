@@ -1,0 +1,16 @@
+{% extends 'base.html' %}
+{% block title %}{{ 'Реєстрація' if register else 'Вхід' }} · Електронна бібліотека{% endblock %}
+{% block content %}
+<section class="panel form-panel auth">
+  <h1>{{ 'Реєстрація' if register else 'Вхід до бібліотеки' }}</h1>
+  <form method="post" class="stack">
+    <input type="hidden" name="csrf" value="{{ csrf_token }}">
+    <label>Електронна адреса<input name="email" type="email" autocomplete="username" value="{{ request.form.get('email', '') }}" required maxlength="254"></label>
+    <label>Пароль<input name="password" type="password" autocomplete="{{ 'new-password' if register else 'current-password' }}" required {{ 'minlength=10' if register }} maxlength="128"></label>
+    {% if register %}<p class="muted">Щонайменше 10 символів. Новий обліковий запис отримує роль читача.</p>{% endif %}
+    <button>{{ 'Створити обліковий запис' if register else 'Увійти' }}</button>
+  </form>
+  {% if register %}<p>Уже є обліковий запис? <a href="{{ url_for('login') }}">Увійти</a></p>
+  {% else %}<p>Ще немає облікового запису? <a href="{{ url_for('register') }}">Зареєструватися</a></p>{% endif %}
+</section>
+{% endblock %}

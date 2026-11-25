@@ -1,0 +1,27 @@
+{% extends 'base.html' %}
+{% block title %}Видачі · Електронна бібліотека{% endblock %}
+{% block content %}
+<div class="heading"><div><h1>Видачі й бронювання</h1><p class="muted">Операції виконуються через збережені процедури PostgreSQL.</p></div></div>
+<div class="cards">
+{% for operation, title, fields in [
+  ('issue', 'Видати примірник', [('copy_id','ID примірника',2147483647),('reader_id','ID читача',2147483647),('days','Строк, днів',60)]),
+  ('return', 'Прийняти повернення', [('loan_id','ID видачі',2147483647)]),
+  ('reserve', 'Створити бронювання', [('book_id','ID книги',2147483647),('reader_id','ID читача',2147483647),('days','Строк, днів',30)])
+] %}
+<section class="panel form-panel">
+  <h2>{{ title }}</h2>
+  <form class="stack" method="post">
+    <input type="hidden" name="csrf" value="{{ csrf_token }}"><input type="hidden" name="operation" value="{{ operation }}">
+    {% for field, label, maximum in fields %}<label>{{ label }}<input type="number" name="{{ field }}" min="1" max="{{ maximum }}" required></label>{% endfor %}
+    <button>{{ title }}</button>
+  </form>
+</section>
+{% endfor %}
+</div>
+<section class="panel results">
+  <div class="panel-head"><h2>Активні видачі</h2><span class="badge">{{ loans|length }}</span></div>
+  <div class="table-wrap"><table><thead><tr><th>ID</th><th>Видання</th><th>Примірник</th><th>Читач</th><th>Повернути до</th><th>Прострочено</th></tr></thead>
+  <tbody>{% for loan in loans %}<tr><td>{{ loan.loan_id }}</td><td>{{ loan.title }}</td><td>{{ loan.inventory_code }}</td><td>{{ loan.reader }}</td><td>{{ loan.due_on }}</td><td>{{ loan.overdue_days }}</td></tr>
+  {% else %}<tr><td colspan="6">Активних видач немає.</td></tr>{% endfor %}</tbody></table></div>
+</section>
+{% endblock %}

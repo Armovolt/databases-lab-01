@@ -1,0 +1,11 @@
+{% extends 'base.html' %}
+{% block title %}Аудит · Електронна бібліотека{% endblock %}
+{% block content %}
+<div class="heading"><div><h1>Журнал операцій</h1><p class="muted">Останні зміни в таблицях PostgreSQL.</p></div></div>
+<section class="panel">
+  <div class="table-wrap"><table><thead><tr><th>ID</th><th>Таблиця</th><th>Операція</th><th>Виконавець</th><th>Час UTC</th></tr></thead>
+  <tbody>{% for row in rows %}<tr><td>{{ row.audit_id }}</td><td>{{ row.table_name }}</td>
+  <td><span class="badge">{{ row.operation }}</span></td><td>{{ row.actor }}</td><td>{{ row.changed_at.strftime('%Y-%m-%d %H:%M:%S') }}</td></tr>
+  {% else %}<tr><td colspan="5">Записів аудиту немає.</td></tr>{% endfor %}</tbody></table></div>
+</section>
+{% endblock %}

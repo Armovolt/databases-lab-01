@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+{% block title %}Статистика · Електронна бібліотека{% endblock %}
+{% block content %}
+<div class="heading"><div><h1>Статистика видач</h1><p class="muted">Кількість видач за жанром і частка прострочених активних видач.</p></div></div>
+<section class="panel chart">
+  <div class="panel-head"><h2>Видачі за жанрами</h2><div class="legend"><span>Видачі</span><span>Прострочено</span></div></div>
+  {% for row in rows %}
+    <div class="chart-row"><strong>{{ row.genre }}</strong>
+      <div class="track"><span class="bar" style="width: {{ row.total / maximum * 100 }}%"></span>
+      <span class="overdue" style="width: {{ row.overdue / maximum * 100 }}%"></span></div>
+      <span>{{ row.total }} / {{ row.overdue }}</span>
+    </div>
+  {% else %}<p class="muted">Дані про видачі відсутні.</p>{% endfor %}
+</section>
+{% endblock %}

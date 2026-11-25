@@ -1,0 +1,21 @@
+name: lab04
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: library_lab04
+      POSTGRES_USER: lab04
+      POSTGRES_PASSWORD: "${LAB04_DB_PASSWORD:-lab04-local}"
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lab04 -d library_lab04"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+volumes:
+  postgres_data:
