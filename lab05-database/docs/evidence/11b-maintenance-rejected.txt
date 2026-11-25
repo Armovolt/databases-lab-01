@@ -1,0 +1,4 @@
+User: lab05_viewer
+SQL: CALL lab05_maintain_database()
+ERROR:  42501: permission denied for procedure lab05_maintain_database
+LOCATION:  aclcheck_error, aclchk.c:2843

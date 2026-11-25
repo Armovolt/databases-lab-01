@@ -1,0 +1,20 @@
+INSERT 0 1
+ reader_id |          email           | total_loans 
+-----------+--------------------------+-------------
+     40011 | rule.before@example.test |           0
+(1 row)
+
+UPDATE 1
+ reader_id |          email          
+-----------+-------------------------
+     40011 | rule.after@example.test
+(1 row)
+
+DELETE 1
+ table_name | operation | changed_by |          changed_at           |        old_email         |        new_email         
+------------+-----------+------------+-------------------------------+--------------------------+--------------------------
+ readers    | INSERT    | lab05      | 2026-11-25 23:24:27.970047+00 |                          | rule.before@example.test
+ readers    | UPDATE    | lab05      | 2026-11-25 23:24:28.209217+00 | rule.before@example.test | rule.after@example.test
+ readers    | DELETE    | lab05      | 2026-11-25 23:24:28.21341+00  | rule.after@example.test  | 
+(3 rows)
+

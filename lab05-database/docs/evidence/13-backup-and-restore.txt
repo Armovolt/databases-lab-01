@@ -1,0 +1,12 @@
+pg_dump -Fc -U lab05 -d library_lab05 -f /tmp/library_lab05.dump
+Backup size: 3425212 bytes
+createdb -U lab05 library_lab05_restore
+pg_restore --exit-on-error -U lab05 -d library_lab05_restore /tmp/library_lab05.dump
+REVOKE
+GRANT
+   restored_database   | books | loans  | reservations | audit_entries | loans_in_summary | maintenance_entries 
+-----------------------+-------+--------+--------------+---------------+------------------+---------------------
+ library_lab05_restore |    12 | 202412 |        50010 |             4 |           202412 |                   2
+(1 row)
+
+DO

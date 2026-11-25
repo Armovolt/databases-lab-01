@@ -1,0 +1,366 @@
+Sample 1
+Q1. Історія видач читача
+                                                                           QUERY PLAN                                                                            
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Gather Merge  (cost=4037.38..4037.61 rows=2 width=42) (actual time=16.562..20.193 rows=5 loops=1)
+   Workers Planned: 1
+   Workers Launched: 1
+   Buffers: shared hit=1382
+   ->  Sort  (cost=3037.37..3037.38 rows=2 width=42) (actual time=13.850..13.857 rows=2 loops=2)
+         Sort Key: l.issued_on DESC
+         Sort Method: quicksort  Memory: 25kB
+         Buffers: shared hit=1382
+         Worker 0:  Sort Method: quicksort  Memory: 25kB
+         ->  Nested Loop  (cost=8.86..3037.36 rows=2 width=42) (actual time=0.806..13.806 rows=2 loops=2)
+               Buffers: shared hit=1374
+               ->  Nested Loop  (cost=8.73..3037.05 rows=2 width=22) (actual time=0.790..13.780 rows=2 loops=2)
+                     Buffers: shared hit=1363
+                     ->  Hash Join  (cost=8.44..3036.44 rows=2 width=12) (actual time=0.749..13.715 rows=2 loops=2)
+                           Hash Cond: (l.reader_id = r.reader_id)
+                           Buffers: shared hit=1347
+                           ->  Parallel Seq Scan on loans l  (cost=0.00..2778.32 rows=95106 width=16) (actual time=0.009..8.874 rows=80382 loops=2)
+                                 Filter: (issued_on >= '2024-06-01'::date)
+                                 Rows Removed by Filter: 20824
+                                 Buffers: shared hit=1290
+                           ->  Hash  (cost=8.43..8.43 rows=1 width=4) (actual time=0.043..0.045 rows=1 loops=2)
+                                 Buckets: 1024  Batches: 1  Memory Usage: 9kB
+                                 Buffers: shared hit=9
+                                 ->  Index Scan using readers_email_key on readers r  (cost=0.41..8.43 rows=1 width=4) (actual time=0.033..0.034 rows=1 loops=2)
+                                       Index Cond: (email = 'bench371@example.test'::text)
+                                       Buffers: shared hit=9
+                     ->  Index Scan using copies_pkey on copies c  (cost=0.29..0.30 rows=1 width=18) (actual time=0.021..0.021 rows=1 loops=5)
+                           Index Cond: (copy_id = l.copy_id)
+                           Buffers: shared hit=16
+               ->  Index Scan using books_pkey on books b  (cost=0.14..0.15 rows=1 width=28) (actual time=0.008..0.008 rows=1 loops=5)
+                     Index Cond: (book_id = c.book_id)
+                     Buffers: shared hit=11
+ Planning:
+   Buffers: shared hit=394
+ Planning Time: 2.338 ms
+ Execution Time: 20.387 ms
+(36 rows)
+
+Q2. Видачі за тиждень за жанрами
+                                                                         QUERY PLAN                                                                         
+------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Sort  (cost=4383.00..4383.01 rows=4 width=27) (actual time=11.655..14.677 rows=4 loops=1)
+   Sort Key: (count(*)) DESC, b.genre
+   Sort Method: quicksort  Memory: 25kB
+   Buffers: shared hit=1445
+   ->  Finalize GroupAggregate  (cost=4382.43..4382.96 rows=4 width=27) (actual time=11.626..14.651 rows=4 loops=1)
+         Group Key: b.genre
+         Buffers: shared hit=1442
+         ->  Gather Merge  (cost=4382.43..4382.89 rows=4 width=27) (actual time=11.621..14.644 rows=8 loops=1)
+               Workers Planned: 1
+               Workers Launched: 1
+               Buffers: shared hit=1442
+               ->  Sort  (cost=3382.42..3382.43 rows=4 width=27) (actual time=7.597..7.599 rows=4 loops=2)
+                     Sort Key: b.genre
+                     Sort Method: quicksort  Memory: 25kB
+                     Buffers: shared hit=1442
+                     Worker 0:  Sort Method: quicksort  Memory: 25kB
+                     ->  Partial HashAggregate  (cost=3382.34..3382.38 rows=4 width=27) (actual time=7.523..7.525 rows=4 loops=2)
+                           Group Key: b.genre
+                           Batches: 1  Memory Usage: 24kB
+                           Buffers: shared hit=1434
+                           Worker 0:  Batches: 1  Memory Usage: 24kB
+                           ->  Hash Join  (cost=290.81..3372.73 rows=961 width=19) (actual time=2.924..7.395 rows=956 loops=2)
+                                 Hash Cond: (c.book_id = b.book_id)
+                                 Buffers: shared hit=1434
+                                 ->  Hash Join  (cost=289.54..3368.05 rows=961 width=12) (actual time=2.652..7.020 rows=956 loops=2)
+                                       Hash Cond: (l.copy_id = c.copy_id)
+                                       Buffers: shared hit=1418
+                                       ->  Parallel Seq Scan on loans l  (cost=0.00..3075.99 rows=961 width=12) (actual time=0.044..4.159 rows=956 loops=2)
+                                             Filter: ((issued_on >= '2025-12-20'::date) AND (issued_on < '2025-12-27'::date))
+                                             Rows Removed by Filter: 100250
+                                             Buffers: shared hit=1290
+                                       ->  Hash  (cost=164.24..164.24 rows=10024 width=8) (actual time=2.503..2.503 rows=10024 loops=2)
+                                             Buckets: 16384  Batches: 1  Memory Usage: 520kB
+                                             Buffers: shared hit=128
+                                             ->  Seq Scan on copies c  (cost=0.00..164.24 rows=10024 width=8) (actual time=0.026..0.943 rows=10024 loops=2)
+                                                   Buffers: shared hit=128
+                                 ->  Hash  (cost=1.12..1.12 rows=12 width=15) (actual time=0.071..0.071 rows=12 loops=2)
+                                       Buckets: 1024  Batches: 1  Memory Usage: 9kB
+                                       Buffers: shared hit=2
+                                       ->  Seq Scan on books b  (cost=0.00..1.12 rows=12 width=15) (actual time=0.052..0.054 rows=12 loops=2)
+                                             Buffers: shared hit=2
+ Planning:
+   Buffers: shared hit=42
+ Planning Time: 0.508 ms
+ Execution Time: 15.051 ms
+(45 rows)
+
+Q3. Історія бронювань читача
+                                                                     QUERY PLAN                                                                      
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+ Sort  (cost=1058.11..1058.12 rows=1 width=41) (actual time=6.078..6.084 rows=2 loops=1)
+   Sort Key: rs.requested_at DESC
+   Sort Method: quicksort  Memory: 25kB
+   Buffers: shared hit=426
+   ->  Nested Loop  (cost=8.44..1058.10 rows=1 width=41) (actual time=0.287..5.993 rows=2 loops=1)
+         Join Filter: (b.book_id = rs.book_id)
+         Rows Removed by Join Filter: 12
+         Buffers: shared hit=423
+         ->  Hash Join  (cost=8.44..1056.83 rows=1 width=21) (actual time=0.277..5.961 rows=2 loops=1)
+               Hash Cond: (rs.reader_id = r.reader_id)
+               Buffers: shared hit=421
+               ->  Seq Scan on reservations rs  (cost=0.00..917.10 rows=50010 width=25) (actual time=0.013..3.163 rows=50010 loops=1)
+                     Buffers: shared hit=417
+               ->  Hash  (cost=8.43..8.43 rows=1 width=4) (actual time=0.098..0.100 rows=1 loops=1)
+                     Buckets: 1024  Batches: 1  Memory Usage: 9kB
+                     Buffers: shared hit=4
+                     ->  Index Scan using readers_email_key on readers r  (cost=0.41..8.43 rows=1 width=4) (actual time=0.080..0.081 rows=1 loops=1)
+                           Index Cond: (email = 'bench371@example.test'::text)
+                           Buffers: shared hit=4
+         ->  Seq Scan on books b  (cost=0.00..1.12 rows=12 width=28) (actual time=0.004..0.005 rows=7 loops=2)
+               Buffers: shared hit=2
+ Planning:
+   Buffers: shared hit=93
+ Planning Time: 1.166 ms
+ Execution Time: 6.212 ms
+(25 rows)
+
+Sample 2
+Q1. Історія видач читача
+                                                                           QUERY PLAN                                                                            
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Gather Merge  (cost=4037.38..4037.61 rows=2 width=42) (actual time=13.686..16.497 rows=5 loops=1)
+   Workers Planned: 1
+   Workers Launched: 1
+   Buffers: shared hit=1380
+   ->  Sort  (cost=3037.37..3037.38 rows=2 width=42) (actual time=10.885..10.890 rows=2 loops=2)
+         Sort Key: l.issued_on DESC
+         Sort Method: quicksort  Memory: 25kB
+         Buffers: shared hit=1380
+         Worker 0:  Sort Method: quicksort  Memory: 25kB
+         ->  Nested Loop  (cost=8.86..3037.36 rows=2 width=42) (actual time=4.323..10.832 rows=2 loops=2)
+               Buffers: shared hit=1372
+               ->  Nested Loop  (cost=8.73..3037.05 rows=2 width=22) (actual time=4.315..10.812 rows=2 loops=2)
+                     Buffers: shared hit=1362
+                     ->  Hash Join  (cost=8.44..3036.44 rows=2 width=12) (actual time=4.296..10.748 rows=2 loops=2)
+                           Hash Cond: (l.reader_id = r.reader_id)
+                           Buffers: shared hit=1347
+                           ->  Parallel Seq Scan on loans l  (cost=0.00..2778.32 rows=95106 width=16) (actual time=0.008..7.116 rows=80382 loops=2)
+                                 Filter: (issued_on >= '2024-06-01'::date)
+                                 Rows Removed by Filter: 20824
+                                 Buffers: shared hit=1290
+                           ->  Hash  (cost=8.43..8.43 rows=1 width=4) (actual time=0.055..0.056 rows=1 loops=2)
+                                 Buckets: 1024  Batches: 1  Memory Usage: 9kB
+                                 Buffers: shared hit=9
+                                 ->  Index Scan using readers_email_key on readers r  (cost=0.41..8.43 rows=1 width=4) (actual time=0.041..0.042 rows=1 loops=2)
+                                       Index Cond: (email = 'bench371@example.test'::text)
+                                       Buffers: shared hit=9
+                     ->  Index Scan using copies_pkey on copies c  (cost=0.29..0.30 rows=1 width=18) (actual time=0.019..0.019 rows=1 loops=5)
+                           Index Cond: (copy_id = l.copy_id)
+                           Buffers: shared hit=15
+               ->  Index Scan using books_pkey on books b  (cost=0.14..0.15 rows=1 width=28) (actual time=0.005..0.005 rows=1 loops=5)
+                     Index Cond: (book_id = c.book_id)
+                     Buffers: shared hit=10
+ Planning:
+   Buffers: shared hit=394
+ Planning Time: 2.299 ms
+ Execution Time: 16.688 ms
+(36 rows)
+
+Q2. Видачі за тиждень за жанрами
+                                                                         QUERY PLAN                                                                         
+------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Sort  (cost=4383.00..4383.01 rows=4 width=27) (actual time=13.480..18.263 rows=4 loops=1)
+   Sort Key: (count(*)) DESC, b.genre
+   Sort Method: quicksort  Memory: 25kB
+   Buffers: shared hit=1381
+   ->  Finalize GroupAggregate  (cost=4382.43..4382.96 rows=4 width=27) (actual time=13.436..18.221 rows=4 loops=1)
+         Group Key: b.genre
+         Buffers: shared hit=1378
+         ->  Gather Merge  (cost=4382.43..4382.89 rows=4 width=27) (actual time=13.421..18.204 rows=4 loops=1)
+               Workers Planned: 1
+               Workers Launched: 1
+               Buffers: shared hit=1378
+               ->  Sort  (cost=3382.42..3382.43 rows=4 width=27) (actual time=6.407..6.410 rows=2 loops=2)
+                     Sort Key: b.genre
+                     Sort Method: quicksort  Memory: 25kB
+                     Buffers: shared hit=1378
+                     Worker 0:  Sort Method: quicksort  Memory: 25kB
+                     ->  Partial HashAggregate  (cost=3382.34..3382.38 rows=4 width=27) (actual time=6.287..6.290 rows=2 loops=2)
+                           Group Key: b.genre
+                           Batches: 1  Memory Usage: 24kB
+                           Buffers: shared hit=1370
+                           Worker 0:  Batches: 1  Memory Usage: 24kB
+                           ->  Hash Join  (cost=290.81..3372.73 rows=961 width=19) (actual time=2.225..6.175 rows=956 loops=2)
+                                 Hash Cond: (c.book_id = b.book_id)
+                                 Buffers: shared hit=1370
+                                 ->  Hash Join  (cost=289.54..3368.05 rows=961 width=12) (actual time=2.071..5.925 rows=956 loops=2)
+                                       Hash Cond: (l.copy_id = c.copy_id)
+                                       Buffers: shared hit=1354
+                                       ->  Parallel Seq Scan on loans l  (cost=0.00..3075.99 rows=961 width=12) (actual time=0.015..3.655 rows=956 loops=2)
+                                             Filter: ((issued_on >= '2025-12-20'::date) AND (issued_on < '2025-12-27'::date))
+                                             Rows Removed by Filter: 100250
+                                             Buffers: shared hit=1290
+                                       ->  Hash  (cost=164.24..164.24 rows=10024 width=8) (actual time=4.001..4.002 rows=10024 loops=1)
+                                             Buckets: 16384  Batches: 1  Memory Usage: 520kB
+                                             Buffers: shared hit=64
+                                             ->  Seq Scan on copies c  (cost=0.00..164.24 rows=10024 width=8) (actual time=0.005..1.294 rows=10024 loops=1)
+                                                   Buffers: shared hit=64
+                                 ->  Hash  (cost=1.12..1.12 rows=12 width=15) (actual time=0.071..0.071 rows=12 loops=2)
+                                       Buckets: 1024  Batches: 1  Memory Usage: 9kB
+                                       Buffers: shared hit=2
+                                       ->  Seq Scan on books b  (cost=0.00..1.12 rows=12 width=15) (actual time=0.040..0.041 rows=12 loops=2)
+                                             Buffers: shared hit=2
+ Planning:
+   Buffers: shared hit=42
+ Planning Time: 0.497 ms
+ Execution Time: 18.512 ms
+(45 rows)
+
+Q3. Історія бронювань читача
+                                                                     QUERY PLAN                                                                      
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+ Sort  (cost=1058.11..1058.12 rows=1 width=41) (actual time=6.186..6.190 rows=2 loops=1)
+   Sort Key: rs.requested_at DESC
+   Sort Method: quicksort  Memory: 25kB
+   Buffers: shared hit=426
+   ->  Nested Loop  (cost=8.44..1058.10 rows=1 width=41) (actual time=0.099..6.156 rows=2 loops=1)
+         Join Filter: (b.book_id = rs.book_id)
+         Rows Removed by Join Filter: 12
+         Buffers: shared hit=423
+         ->  Hash Join  (cost=8.44..1056.83 rows=1 width=21) (actual time=0.096..6.120 rows=2 loops=1)
+               Hash Cond: (rs.reader_id = r.reader_id)
+               Buffers: shared hit=421
+               ->  Seq Scan on reservations rs  (cost=0.00..917.10 rows=50010 width=25) (actual time=0.007..3.350 rows=50010 loops=1)
+                     Buffers: shared hit=417
+               ->  Hash  (cost=8.43..8.43 rows=1 width=4) (actual time=0.029..0.031 rows=1 loops=1)
+                     Buckets: 1024  Batches: 1  Memory Usage: 9kB
+                     Buffers: shared hit=4
+                     ->  Index Scan using readers_email_key on readers r  (cost=0.41..8.43 rows=1 width=4) (actual time=0.017..0.018 rows=1 loops=1)
+                           Index Cond: (email = 'bench371@example.test'::text)
+                           Buffers: shared hit=4
+         ->  Seq Scan on books b  (cost=0.00..1.12 rows=12 width=28) (actual time=0.003..0.003 rows=7 loops=2)
+               Buffers: shared hit=2
+ Planning:
+   Buffers: shared hit=93
+ Planning Time: 0.625 ms
+ Execution Time: 6.286 ms
+(25 rows)
+
+Sample 3
+Q1. Історія видач читача
+                                                                           QUERY PLAN                                                                            
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Gather Merge  (cost=4037.38..4037.61 rows=2 width=42) (actual time=14.020..16.493 rows=5 loops=1)
+   Workers Planned: 1
+   Workers Launched: 1
+   Buffers: shared hit=1382
+   ->  Sort  (cost=3037.37..3037.38 rows=2 width=42) (actual time=10.181..10.184 rows=2 loops=2)
+         Sort Key: l.issued_on DESC
+         Sort Method: quicksort  Memory: 25kB
+         Buffers: shared hit=1382
+         Worker 0:  Sort Method: quicksort  Memory: 25kB
+         ->  Nested Loop  (cost=8.86..3037.36 rows=2 width=42) (actual time=1.089..10.130 rows=2 loops=2)
+               Buffers: shared hit=1374
+               ->  Nested Loop  (cost=8.73..3037.05 rows=2 width=22) (actual time=1.070..10.104 rows=2 loops=2)
+                     Buffers: shared hit=1363
+                     ->  Hash Join  (cost=8.44..3036.44 rows=2 width=12) (actual time=1.012..10.027 rows=2 loops=2)
+                           Hash Cond: (l.reader_id = r.reader_id)
+                           Buffers: shared hit=1347
+                           ->  Parallel Seq Scan on loans l  (cost=0.00..2778.32 rows=95106 width=16) (actual time=0.026..6.300 rows=80382 loops=2)
+                                 Filter: (issued_on >= '2024-06-01'::date)
+                                 Rows Removed by Filter: 20824
+                                 Buffers: shared hit=1290
+                           ->  Hash  (cost=8.43..8.43 rows=1 width=4) (actual time=0.093..0.094 rows=1 loops=2)
+                                 Buckets: 1024  Batches: 1  Memory Usage: 9kB
+                                 Buffers: shared hit=9
+                                 ->  Index Scan using readers_email_key on readers r  (cost=0.41..8.43 rows=1 width=4) (actual time=0.072..0.074 rows=1 loops=2)
+                                       Index Cond: (email = 'bench371@example.test'::text)
+                                       Buffers: shared hit=9
+                     ->  Index Scan using copies_pkey on copies c  (cost=0.29..0.30 rows=1 width=18) (actual time=0.026..0.026 rows=1 loops=5)
+                           Index Cond: (copy_id = l.copy_id)
+                           Buffers: shared hit=16
+               ->  Index Scan using books_pkey on books b  (cost=0.14..0.15 rows=1 width=28) (actual time=0.008..0.008 rows=1 loops=5)
+                     Index Cond: (book_id = c.book_id)
+                     Buffers: shared hit=11
+ Planning:
+   Buffers: shared hit=394
+ Planning Time: 9.930 ms
+ Execution Time: 16.972 ms
+(36 rows)
+
+Q2. Видачі за тиждень за жанрами
+                                                                         QUERY PLAN                                                                         
+------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Sort  (cost=4383.00..4383.01 rows=4 width=27) (actual time=11.985..14.432 rows=4 loops=1)
+   Sort Key: (count(*)) DESC, b.genre
+   Sort Method: quicksort  Memory: 25kB
+   Buffers: shared hit=1445
+   ->  Finalize GroupAggregate  (cost=4382.43..4382.96 rows=4 width=27) (actual time=10.921..13.371 rows=4 loops=1)
+         Group Key: b.genre
+         Buffers: shared hit=1442
+         ->  Gather Merge  (cost=4382.43..4382.89 rows=4 width=27) (actual time=10.914..13.362 rows=8 loops=1)
+               Workers Planned: 1
+               Workers Launched: 1
+               Buffers: shared hit=1442
+               ->  Sort  (cost=3382.42..3382.43 rows=4 width=27) (actual time=6.743..6.745 rows=4 loops=2)
+                     Sort Key: b.genre
+                     Sort Method: quicksort  Memory: 25kB
+                     Buffers: shared hit=1442
+                     Worker 0:  Sort Method: quicksort  Memory: 25kB
+                     ->  Partial HashAggregate  (cost=3382.34..3382.38 rows=4 width=27) (actual time=6.703..6.705 rows=4 loops=2)
+                           Group Key: b.genre
+                           Batches: 1  Memory Usage: 24kB
+                           Buffers: shared hit=1434
+                           Worker 0:  Batches: 1  Memory Usage: 24kB
+                           ->  Hash Join  (cost=290.81..3372.73 rows=961 width=19) (actual time=2.151..6.553 rows=956 loops=2)
+                                 Hash Cond: (c.book_id = b.book_id)
+                                 Buffers: shared hit=1434
+                                 ->  Hash Join  (cost=289.54..3368.05 rows=961 width=12) (actual time=2.022..6.311 rows=956 loops=2)
+                                       Hash Cond: (l.copy_id = c.copy_id)
+                                       Buffers: shared hit=1418
+                                       ->  Parallel Seq Scan on loans l  (cost=0.00..3075.99 rows=961 width=12) (actual time=0.051..4.126 rows=956 loops=2)
+                                             Filter: ((issued_on >= '2025-12-20'::date) AND (issued_on < '2025-12-27'::date))
+                                             Rows Removed by Filter: 100250
+                                             Buffers: shared hit=1290
+                                       ->  Hash  (cost=164.24..164.24 rows=10024 width=8) (actual time=1.829..1.829 rows=10024 loops=2)
+                                             Buckets: 16384  Batches: 1  Memory Usage: 520kB
+                                             Buffers: shared hit=128
+                                             ->  Seq Scan on copies c  (cost=0.00..164.24 rows=10024 width=8) (actual time=0.016..0.686 rows=10024 loops=2)
+                                                   Buffers: shared hit=128
+                                 ->  Hash  (cost=1.12..1.12 rows=12 width=15) (actual time=0.048..0.049 rows=12 loops=2)
+                                       Buckets: 1024  Batches: 1  Memory Usage: 9kB
+                                       Buffers: shared hit=2
+                                       ->  Seq Scan on books b  (cost=0.00..1.12 rows=12 width=15) (actual time=0.026..0.027 rows=12 loops=2)
+                                             Buffers: shared hit=2
+ Planning:
+   Buffers: shared hit=42
+ Planning Time: 0.959 ms
+ Execution Time: 14.751 ms
+(45 rows)
+
+Q3. Історія бронювань читача
+                                                                     QUERY PLAN                                                                      
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+ Sort  (cost=1058.11..1058.12 rows=1 width=41) (actual time=5.545..5.547 rows=2 loops=1)
+   Sort Key: rs.requested_at DESC
+   Sort Method: quicksort  Memory: 25kB
+   Buffers: shared hit=426
+   ->  Nested Loop  (cost=8.44..1058.10 rows=1 width=41) (actual time=0.304..5.280 rows=2 loops=1)
+         Join Filter: (b.book_id = rs.book_id)
+         Rows Removed by Join Filter: 12
+         Buffers: shared hit=423
+         ->  Hash Join  (cost=8.44..1056.83 rows=1 width=21) (actual time=0.297..5.266 rows=2 loops=1)
+               Hash Cond: (rs.reader_id = r.reader_id)
+               Buffers: shared hit=421
+               ->  Seq Scan on reservations rs  (cost=0.00..917.10 rows=50010 width=25) (actual time=0.013..2.701 rows=50010 loops=1)
+                     Buffers: shared hit=417
+               ->  Hash  (cost=8.43..8.43 rows=1 width=4) (actual time=0.168..0.168 rows=1 loops=1)
+                     Buckets: 1024  Batches: 1  Memory Usage: 9kB
+                     Buffers: shared hit=4
+                     ->  Index Scan using readers_email_key on readers r  (cost=0.41..8.43 rows=1 width=4) (actual time=0.072..0.073 rows=1 loops=1)
+                           Index Cond: (email = 'bench371@example.test'::text)
+                           Buffers: shared hit=4
+         ->  Seq Scan on books b  (cost=0.00..1.12 rows=12 width=28) (actual time=0.002..0.002 rows=7 loops=2)
+               Buffers: shared hit=2
+ Planning:
+   Buffers: shared hit=93
+ Planning Time: 3.358 ms
+ Execution Time: 5.731 ms
+(25 rows)
+

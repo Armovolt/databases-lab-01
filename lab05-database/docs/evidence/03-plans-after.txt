@@ -1,0 +1,306 @@
+Sample 1
+Q1. Історія видач читача
+                                                                          QUERY PLAN                                                                          
+--------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Sort  (cost=30.20..30.21 rows=4 width=42) (actual time=0.253..0.254 rows=5 loops=1)
+   Sort Key: l.issued_on DESC
+   Sort Method: quicksort  Memory: 25kB
+   Buffers: shared hit=39 read=1
+   ->  Nested Loop  (cost=5.30..30.16 rows=4 width=42) (actual time=0.182..0.221 rows=5 loops=1)
+         Buffers: shared hit=36 read=1
+         ->  Nested Loop  (cost=5.16..29.54 rows=4 width=22) (actual time=0.169..0.204 rows=5 loops=1)
+               Buffers: shared hit=26 read=1
+               ->  Nested Loop  (cost=4.88..28.33 rows=4 width=12) (actual time=0.145..0.175 rows=5 loops=1)
+                     Buffers: shared hit=11 read=1
+                     ->  Index Scan using readers_email_key on readers r  (cost=0.41..8.43 rows=1 width=4) (actual time=0.090..0.091 rows=1 loops=1)
+                           Index Cond: (email = 'bench371@example.test'::text)
+                           Buffers: shared hit=4
+                     ->  Bitmap Heap Scan on loans l  (cost=4.46..19.85 rows=4 width=16) (actual time=0.052..0.080 rows=5 loops=1)
+                           Recheck Cond: ((r.reader_id = reader_id) AND (issued_on >= '2024-06-01'::date))
+                           Heap Blocks: exact=5
+                           Buffers: shared hit=7 read=1
+                           ->  Bitmap Index Scan on lab05_loans_reader_issued_idx  (cost=0.00..4.46 rows=4 width=0) (actual time=0.042..0.042 rows=5 loops=1)
+                                 Index Cond: ((reader_id = r.reader_id) AND (issued_on >= '2024-06-01'::date))
+                                 Buffers: shared hit=2 read=1
+               ->  Index Scan using copies_pkey on copies c  (cost=0.29..0.30 rows=1 width=18) (actual time=0.005..0.005 rows=1 loops=5)
+                     Index Cond: (copy_id = l.copy_id)
+                     Buffers: shared hit=15
+         ->  Index Scan using books_pkey on books b  (cost=0.14..0.15 rows=1 width=28) (actual time=0.003..0.003 rows=1 loops=5)
+               Index Cond: (book_id = c.book_id)
+               Buffers: shared hit=10
+ Planning:
+   Buffers: shared hit=431 read=7
+ Planning Time: 2.638 ms
+ Execution Time: 0.426 ms
+(30 rows)
+
+Q2. Видачі за тиждень за жанрами
+                                                                          QUERY PLAN                                                                          
+--------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Sort  (cost=1730.83..1730.84 rows=4 width=27) (actual time=4.247..4.250 rows=4 loops=1)
+   Sort Key: (count(*)) DESC, b.genre
+   Sort Method: quicksort  Memory: 25kB
+   Buffers: shared hit=356 read=3
+   ->  HashAggregate  (cost=1730.75..1730.79 rows=4 width=27) (actual time=4.170..4.173 rows=4 loops=1)
+         Group Key: b.genre
+         Batches: 1  Memory Usage: 24kB
+         Buffers: shared hit=350 read=3
+         ->  Hash Join  (cost=317.40..1712.90 rows=1785 width=19) (actual time=2.174..3.901 rows=1911 loops=1)
+               Hash Cond: (c.book_id = b.book_id)
+               Buffers: shared hit=350 read=3
+               ->  Hash Join  (cost=316.13..1705.29 rows=1785 width=12) (actual time=2.138..3.593 rows=1911 loops=1)
+                     Hash Cond: (l.copy_id = c.copy_id)
+                     Buffers: shared hit=349 read=3
+                     ->  Bitmap Heap Scan on loans l  (cost=26.59..1411.06 rows=1785 width=12) (actual time=0.160..1.277 rows=1911 loops=1)
+                           Recheck Cond: ((issued_on >= '2025-12-20'::date) AND (issued_on < '2025-12-27'::date))
+                           Heap Blocks: exact=284
+                           Buffers: shared hit=285 read=3
+                           ->  Bitmap Index Scan on lab05_loans_issued_idx  (cost=0.00..26.15 rows=1785 width=0) (actual time=0.131..0.132 rows=1911 loops=1)
+                                 Index Cond: ((issued_on >= '2025-12-20'::date) AND (issued_on < '2025-12-27'::date))
+                                 Buffers: shared hit=1 read=3
+                     ->  Hash  (cost=164.24..164.24 rows=10024 width=8) (actual time=1.888..1.889 rows=10024 loops=1)
+                           Buckets: 16384  Batches: 1  Memory Usage: 520kB
+                           Buffers: shared hit=64
+                           ->  Seq Scan on copies c  (cost=0.00..164.24 rows=10024 width=8) (actual time=0.030..0.777 rows=10024 loops=1)
+                                 Buffers: shared hit=64
+               ->  Hash  (cost=1.12..1.12 rows=12 width=15) (actual time=0.024..0.024 rows=12 loops=1)
+                     Buckets: 1024  Batches: 1  Memory Usage: 9kB
+                     Buffers: shared hit=1
+                     ->  Seq Scan on books b  (cost=0.00..1.12 rows=12 width=15) (actual time=0.008..0.010 rows=12 loops=1)
+                           Buffers: shared hit=1
+ Planning:
+   Buffers: shared hit=45 read=2
+ Planning Time: 0.667 ms
+ Execution Time: 4.567 ms
+(35 rows)
+
+Q3. Історія бронювань читача
+                                                                                 QUERY PLAN                                                                                 
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Sort  (cost=16.92..16.92 rows=1 width=41) (actual time=0.119..0.120 rows=2 loops=1)
+   Sort Key: rs.requested_at DESC
+   Sort Method: quicksort  Memory: 25kB
+   Buffers: shared hit=14 read=1
+   ->  Nested Loop  (cost=0.84..16.91 rows=1 width=41) (actual time=0.062..0.070 rows=2 loops=1)
+         Buffers: shared hit=11 read=1
+         ->  Nested Loop  (cost=0.70..16.75 rows=1 width=21) (actual time=0.052..0.059 rows=2 loops=1)
+               Buffers: shared hit=7 read=1
+               ->  Index Scan using readers_email_key on readers r  (cost=0.41..8.43 rows=1 width=4) (actual time=0.023..0.023 rows=1 loops=1)
+                     Index Cond: (email = 'bench371@example.test'::text)
+                     Buffers: shared hit=4
+               ->  Index Scan using lab05_reservations_reader_requested_idx on reservations rs  (cost=0.29..8.31 rows=1 width=25) (actual time=0.025..0.031 rows=2 loops=1)
+                     Index Cond: (reader_id = r.reader_id)
+                     Buffers: shared hit=3 read=1
+         ->  Index Scan using books_pkey on books b  (cost=0.14..0.15 rows=1 width=28) (actual time=0.005..0.005 rows=1 loops=2)
+               Index Cond: (book_id = rs.book_id)
+               Buffers: shared hit=4
+ Planning:
+   Buffers: shared hit=119 read=4
+ Planning Time: 1.029 ms
+ Execution Time: 0.174 ms
+(21 rows)
+
+Sample 2
+Q1. Історія видач читача
+                                                                          QUERY PLAN                                                                          
+--------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Sort  (cost=30.20..30.21 rows=4 width=42) (actual time=0.180..0.182 rows=5 loops=1)
+   Sort Key: l.issued_on DESC
+   Sort Method: quicksort  Memory: 25kB
+   Buffers: shared hit=40
+   ->  Nested Loop  (cost=5.30..30.16 rows=4 width=42) (actual time=0.093..0.126 rows=5 loops=1)
+         Buffers: shared hit=37
+         ->  Nested Loop  (cost=5.16..29.54 rows=4 width=22) (actual time=0.083..0.113 rows=5 loops=1)
+               Buffers: shared hit=27
+               ->  Nested Loop  (cost=4.88..28.33 rows=4 width=12) (actual time=0.061..0.087 rows=5 loops=1)
+                     Buffers: shared hit=12
+                     ->  Index Scan using readers_email_key on readers r  (cost=0.41..8.43 rows=1 width=4) (actual time=0.034..0.035 rows=1 loops=1)
+                           Index Cond: (email = 'bench371@example.test'::text)
+                           Buffers: shared hit=4
+                     ->  Bitmap Heap Scan on loans l  (cost=4.46..19.85 rows=4 width=16) (actual time=0.025..0.049 rows=5 loops=1)
+                           Recheck Cond: ((r.reader_id = reader_id) AND (issued_on >= '2024-06-01'::date))
+                           Heap Blocks: exact=5
+                           Buffers: shared hit=8
+                           ->  Bitmap Index Scan on lab05_loans_reader_issued_idx  (cost=0.00..4.46 rows=4 width=0) (actual time=0.017..0.017 rows=5 loops=1)
+                                 Index Cond: ((reader_id = r.reader_id) AND (issued_on >= '2024-06-01'::date))
+                                 Buffers: shared hit=3
+               ->  Index Scan using copies_pkey on copies c  (cost=0.29..0.30 rows=1 width=18) (actual time=0.005..0.005 rows=1 loops=5)
+                     Index Cond: (copy_id = l.copy_id)
+                     Buffers: shared hit=15
+         ->  Index Scan using books_pkey on books b  (cost=0.14..0.15 rows=1 width=28) (actual time=0.002..0.002 rows=1 loops=5)
+               Index Cond: (book_id = c.book_id)
+               Buffers: shared hit=10
+ Planning:
+   Buffers: shared hit=430
+ Planning Time: 2.665 ms
+ Execution Time: 0.335 ms
+(30 rows)
+
+Q2. Видачі за тиждень за жанрами
+                                                                          QUERY PLAN                                                                          
+--------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Sort  (cost=1730.83..1730.84 rows=4 width=27) (actual time=3.648..3.651 rows=4 loops=1)
+   Sort Key: (count(*)) DESC, b.genre
+   Sort Method: quicksort  Memory: 25kB
+   Buffers: shared hit=359
+   ->  HashAggregate  (cost=1730.75..1730.79 rows=4 width=27) (actual time=3.583..3.585 rows=4 loops=1)
+         Group Key: b.genre
+         Batches: 1  Memory Usage: 24kB
+         Buffers: shared hit=353
+         ->  Hash Join  (cost=317.40..1712.90 rows=1785 width=19) (actual time=1.918..3.371 rows=1911 loops=1)
+               Hash Cond: (c.book_id = b.book_id)
+               Buffers: shared hit=353
+               ->  Hash Join  (cost=316.13..1705.29 rows=1785 width=12) (actual time=1.885..3.147 rows=1911 loops=1)
+                     Hash Cond: (l.copy_id = c.copy_id)
+                     Buffers: shared hit=352
+                     ->  Bitmap Heap Scan on loans l  (cost=26.59..1411.06 rows=1785 width=12) (actual time=0.111..1.092 rows=1911 loops=1)
+                           Recheck Cond: ((issued_on >= '2025-12-20'::date) AND (issued_on < '2025-12-27'::date))
+                           Heap Blocks: exact=284
+                           Buffers: shared hit=288
+                           ->  Bitmap Index Scan on lab05_loans_issued_idx  (cost=0.00..26.15 rows=1785 width=0) (actual time=0.088..0.089 rows=1911 loops=1)
+                                 Index Cond: ((issued_on >= '2025-12-20'::date) AND (issued_on < '2025-12-27'::date))
+                                 Buffers: shared hit=4
+                     ->  Hash  (cost=164.24..164.24 rows=10024 width=8) (actual time=1.706..1.706 rows=10024 loops=1)
+                           Buckets: 16384  Batches: 1  Memory Usage: 520kB
+                           Buffers: shared hit=64
+                           ->  Seq Scan on copies c  (cost=0.00..164.24 rows=10024 width=8) (actual time=0.008..0.716 rows=10024 loops=1)
+                                 Buffers: shared hit=64
+               ->  Hash  (cost=1.12..1.12 rows=12 width=15) (actual time=0.024..0.024 rows=12 loops=1)
+                     Buckets: 1024  Batches: 1  Memory Usage: 9kB
+                     Buffers: shared hit=1
+                     ->  Seq Scan on books b  (cost=0.00..1.12 rows=12 width=15) (actual time=0.009..0.011 rows=12 loops=1)
+                           Buffers: shared hit=1
+ Planning:
+   Buffers: shared hit=45
+ Planning Time: 1.544 ms
+ Execution Time: 3.882 ms
+(35 rows)
+
+Q3. Історія бронювань читача
+                                                                                 QUERY PLAN                                                                                 
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Sort  (cost=16.92..16.92 rows=1 width=41) (actual time=0.162..0.163 rows=2 loops=1)
+   Sort Key: rs.requested_at DESC
+   Sort Method: quicksort  Memory: 25kB
+   Buffers: shared hit=15
+   ->  Nested Loop  (cost=0.84..16.91 rows=1 width=41) (actual time=0.072..0.083 rows=2 loops=1)
+         Buffers: shared hit=12
+         ->  Nested Loop  (cost=0.70..16.75 rows=1 width=21) (actual time=0.058..0.067 rows=2 loops=1)
+               Buffers: shared hit=8
+               ->  Index Scan using readers_email_key on readers r  (cost=0.41..8.43 rows=1 width=4) (actual time=0.028..0.028 rows=1 loops=1)
+                     Index Cond: (email = 'bench371@example.test'::text)
+                     Buffers: shared hit=4
+               ->  Index Scan using lab05_reservations_reader_requested_idx on reservations rs  (cost=0.29..8.31 rows=1 width=25) (actual time=0.026..0.034 rows=2 loops=1)
+                     Index Cond: (reader_id = r.reader_id)
+                     Buffers: shared hit=4
+         ->  Index Scan using books_pkey on books b  (cost=0.14..0.15 rows=1 width=28) (actual time=0.006..0.006 rows=1 loops=2)
+               Index Cond: (book_id = rs.book_id)
+               Buffers: shared hit=4
+ Planning:
+   Buffers: shared hit=115
+ Planning Time: 1.445 ms
+ Execution Time: 0.225 ms
+(21 rows)
+
+Sample 3
+Q1. Історія видач читача
+                                                                          QUERY PLAN                                                                          
+--------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Sort  (cost=30.20..30.21 rows=4 width=42) (actual time=0.159..0.160 rows=5 loops=1)
+   Sort Key: l.issued_on DESC
+   Sort Method: quicksort  Memory: 25kB
+   Buffers: shared hit=40
+   ->  Nested Loop  (cost=5.30..30.16 rows=4 width=42) (actual time=0.090..0.124 rows=5 loops=1)
+         Buffers: shared hit=37
+         ->  Nested Loop  (cost=5.16..29.54 rows=4 width=22) (actual time=0.080..0.112 rows=5 loops=1)
+               Buffers: shared hit=27
+               ->  Nested Loop  (cost=4.88..28.33 rows=4 width=12) (actual time=0.061..0.087 rows=5 loops=1)
+                     Buffers: shared hit=12
+                     ->  Index Scan using readers_email_key on readers r  (cost=0.41..8.43 rows=1 width=4) (actual time=0.031..0.032 rows=1 loops=1)
+                           Index Cond: (email = 'bench371@example.test'::text)
+                           Buffers: shared hit=4
+                     ->  Bitmap Heap Scan on loans l  (cost=4.46..19.85 rows=4 width=16) (actual time=0.028..0.053 rows=5 loops=1)
+                           Recheck Cond: ((r.reader_id = reader_id) AND (issued_on >= '2024-06-01'::date))
+                           Heap Blocks: exact=5
+                           Buffers: shared hit=8
+                           ->  Bitmap Index Scan on lab05_loans_reader_issued_idx  (cost=0.00..4.46 rows=4 width=0) (actual time=0.018..0.018 rows=5 loops=1)
+                                 Index Cond: ((reader_id = r.reader_id) AND (issued_on >= '2024-06-01'::date))
+                                 Buffers: shared hit=3
+               ->  Index Scan using copies_pkey on copies c  (cost=0.29..0.30 rows=1 width=18) (actual time=0.004..0.004 rows=1 loops=5)
+                     Index Cond: (copy_id = l.copy_id)
+                     Buffers: shared hit=15
+         ->  Index Scan using books_pkey on books b  (cost=0.14..0.15 rows=1 width=28) (actual time=0.002..0.002 rows=1 loops=5)
+               Index Cond: (book_id = c.book_id)
+               Buffers: shared hit=10
+ Planning:
+   Buffers: shared hit=430
+ Planning Time: 3.467 ms
+ Execution Time: 0.327 ms
+(30 rows)
+
+Q2. Видачі за тиждень за жанрами
+                                                                          QUERY PLAN                                                                          
+--------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Sort  (cost=1730.83..1730.84 rows=4 width=27) (actual time=4.206..4.209 rows=4 loops=1)
+   Sort Key: (count(*)) DESC, b.genre
+   Sort Method: quicksort  Memory: 25kB
+   Buffers: shared hit=359
+   ->  HashAggregate  (cost=1730.75..1730.79 rows=4 width=27) (actual time=4.139..4.141 rows=4 loops=1)
+         Group Key: b.genre
+         Batches: 1  Memory Usage: 24kB
+         Buffers: shared hit=353
+         ->  Hash Join  (cost=317.40..1712.90 rows=1785 width=19) (actual time=1.944..3.867 rows=1911 loops=1)
+               Hash Cond: (c.book_id = b.book_id)
+               Buffers: shared hit=353
+               ->  Hash Join  (cost=316.13..1705.29 rows=1785 width=12) (actual time=1.901..3.562 rows=1911 loops=1)
+                     Hash Cond: (l.copy_id = c.copy_id)
+                     Buffers: shared hit=352
+                     ->  Bitmap Heap Scan on loans l  (cost=26.59..1411.06 rows=1785 width=12) (actual time=0.093..1.379 rows=1911 loops=1)
+                           Recheck Cond: ((issued_on >= '2025-12-20'::date) AND (issued_on < '2025-12-27'::date))
+                           Heap Blocks: exact=284
+                           Buffers: shared hit=288
+                           ->  Bitmap Index Scan on lab05_loans_issued_idx  (cost=0.00..26.15 rows=1785 width=0) (actual time=0.070..0.071 rows=1911 loops=1)
+                                 Index Cond: ((issued_on >= '2025-12-20'::date) AND (issued_on < '2025-12-27'::date))
+                                 Buffers: shared hit=4
+                     ->  Hash  (cost=164.24..164.24 rows=10024 width=8) (actual time=1.741..1.741 rows=10024 loops=1)
+                           Buckets: 16384  Batches: 1  Memory Usage: 520kB
+                           Buffers: shared hit=64
+                           ->  Seq Scan on copies c  (cost=0.00..164.24 rows=10024 width=8) (actual time=0.006..0.757 rows=10024 loops=1)
+                                 Buffers: shared hit=64
+               ->  Hash  (cost=1.12..1.12 rows=12 width=15) (actual time=0.026..0.026 rows=12 loops=1)
+                     Buckets: 1024  Batches: 1  Memory Usage: 9kB
+                     Buffers: shared hit=1
+                     ->  Seq Scan on books b  (cost=0.00..1.12 rows=12 width=15) (actual time=0.011..0.012 rows=12 loops=1)
+                           Buffers: shared hit=1
+ Planning:
+   Buffers: shared hit=45
+ Planning Time: 0.740 ms
+ Execution Time: 4.657 ms
+(35 rows)
+
+Q3. Історія бронювань читача
+                                                                                 QUERY PLAN                                                                                 
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Sort  (cost=16.92..16.92 rows=1 width=41) (actual time=0.098..0.098 rows=2 loops=1)
+   Sort Key: rs.requested_at DESC
+   Sort Method: quicksort  Memory: 25kB
+   Buffers: shared hit=15
+   ->  Nested Loop  (cost=0.84..16.91 rows=1 width=41) (actual time=0.047..0.055 rows=2 loops=1)
+         Buffers: shared hit=12
+         ->  Nested Loop  (cost=0.70..16.75 rows=1 width=21) (actual time=0.039..0.046 rows=2 loops=1)
+               Buffers: shared hit=8
+               ->  Index Scan using readers_email_key on readers r  (cost=0.41..8.43 rows=1 width=4) (actual time=0.022..0.022 rows=1 loops=1)
+                     Index Cond: (email = 'bench371@example.test'::text)
+                     Buffers: shared hit=4
+               ->  Index Scan using lab05_reservations_reader_requested_idx on reservations rs  (cost=0.29..8.31 rows=1 width=25) (actual time=0.013..0.020 rows=2 loops=1)
+                     Index Cond: (reader_id = r.reader_id)
+                     Buffers: shared hit=4
+         ->  Index Scan using books_pkey on books b  (cost=0.14..0.15 rows=1 width=28) (actual time=0.004..0.004 rows=1 loops=2)
+               Index Cond: (book_id = rs.book_id)
+               Buffers: shared hit=4
+ Planning:
+   Buffers: shared hit=115
+ Planning Time: 1.163 ms
+ Execution Time: 0.143 ms
+(21 rows)
+

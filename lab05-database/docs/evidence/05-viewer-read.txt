@@ -1,0 +1,7 @@
+ current_user | book_id |    title     
+--------------+---------+--------------
+ lab05_viewer |       1 | Лісова пісня
+ lab05_viewer |       2 | Кобзар
+ lab05_viewer |       3 | Захар Беркут
+(3 rows)
+

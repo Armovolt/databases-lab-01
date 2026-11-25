@@ -1,0 +1,14 @@
+INSERT 0 40000
+INSERT 0 10000
+INSERT 0 200000
+INSERT 0 2400
+INSERT 0 50000
+ANALYZE
+  table_name  | count  
+--------------+--------
+ copies       |  10024
+ readers      |  40010
+ reservations |  50010
+ loans        | 202412
+(4 rows)
+

@@ -1,0 +1,5 @@
+User: lab05
+SQL: INSERT INTO readers (full_name, email) VALUES ('Validation test', 'invalid-email')
+ERROR:  23514: Некоректна адреса електронної пошти
+CONTEXT:  PL/pgSQL function lab05_validate_email() line 4 at RAISE
+LOCATION:  exec_stmt_raise, pl_exec.c:3913

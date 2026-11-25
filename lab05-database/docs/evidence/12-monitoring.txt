@@ -1,0 +1,26 @@
+Використання індексів у поточній базі
+      table_name      |               index_name                | idx_scan | idx_tup_read | idx_tup_fetch 
+----------------------+-----------------------------------------+----------+--------------+---------------
+ loans                | lab05_loans_reader_issued_idx           |       26 |           44 |            16
+ reservations         | lab05_reservations_reader_requested_idx |       20 |           27 |            26
+ loans                | lab05_loans_issued_idx                  |        7 |         7647 |             3
+ loans                | lab05_loans_open_due_idx                |        2 |           16 |             0
+ mv_lab05_daily_loans | lab05_daily_loans_day_idx               |        2 |            1 |             1
+ reservations         | lab05_reservations_pending_expiry_idx   |        2 |           12 |             0
+(6 rows)
+
+Запити з найбільшим середнім часом виконання
+  avg_ms  | total_ms |  max_ms  | calls |                                                query                                                 
+----------+----------+----------+-------+------------------------------------------------------------------------------------------------------
+ 7876.825 | 7876.825 | 7876.825 |     1 | INSERT INTO loans (copy_id, reader_id, issued_on, due_on, returned_on) SELECT c.copy_id, r.reader_id
+ 1781.085 | 1781.085 | 1781.085 |     1 | INSERT INTO reservations (book_id, reader_id, requested_at, expires_on, status) SELECT $1 + ((n - $2
+  360.906 |  360.906 |  360.906 |     1 | CALL lab05_maintain_database()
+  297.306 |  297.306 |  297.306 |     1 | ANALYZE
+  292.606 |  292.606 |  292.606 |     1 | INSERT INTO loans (copy_id, reader_id, issued_on, due_on) SELECT c.copy_id, r.reader_id, CURRENT_DAT
+  188.341 |  188.341 |  188.341 |     1 | INSERT INTO copies (book_id, inventory_code) SELECT $1 + ((n - $2) % $3), $4 || n FROM generate_seri
+  162.247 |  162.247 |  162.247 |     1 | INSERT INTO readers (full_name, email) SELECT $1 || n, $2 || n || $3 FROM generate_series($4, $5) AS
+  133.158 |  133.158 |  133.158 |     1 | UPDATE v_lab05_reader_contacts SET email = $1 WHERE email = $2
+  122.671 |  122.671 |  122.671 |     1 | UPDATE v_lab05_reader_contacts SET email = $1 WHERE email = $2
+  107.623 |  107.623 |  107.623 |     1 | SELECT reader_id, email, total_loans FROM v_lab05_reader_contacts WHERE email = $1
+(10 rows)
+

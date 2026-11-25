@@ -1,0 +1,58 @@
+Кількість повернених видач за сьогодні до і після тестової вставки
+BEGIN
+ before_insert 
+---------------
+             0
+(1 row)
+
+INSERT 0 1
+ after_insert 
+--------------
+            1
+(1 row)
+
+ROLLBACK
+Оновлення контактів модератором через RULE
+BEGIN
+SET
+UPDATE 1
+ reader_id |             email             
+-----------+-------------------------------
+       381 | bench371.changed@example.test
+(1 row)
+
+ROLLBACK
+Каскад: читач -> бронювання -> журнал сповіщень
+BEGIN
+ active | before_update 
+--------+---------------
+ t      | pending
+(1 row)
+
+SET
+UPDATE 1
+RESET
+ active | after_update |       message        |   changed_by    
+--------+--------------+----------------------+-----------------
+ f      | cancelled    | Бронювання скасовано | lab05_moderator
+(1 row)
+
+ROLLBACK
+Матриця дозволів
+    role_name    | read_catalog | edit_email | delete_books | read_audit | run_maintenance 
+-----------------+--------------+------------+--------------+------------+-----------------
+ lab05_user      | t            | f          | f            | f          | f
+ lab05_moderator | t            | t          | f            | f          | f
+ lab05_admin     | t            | t          | t            | t          | t
+(3 rows)
+
+Обслуговування від імені адміністратора
+SET
+CALL
+  table_name  |     operation     |          executed_at          
+--------------+-------------------+-------------------------------
+ loans        | ANALYZE + REINDEX | 2026-11-25 23:24:29.599372+00
+ reservations | ANALYZE + REINDEX | 2026-11-25 23:24:29.691102+00
+(2 rows)
+
+RESET

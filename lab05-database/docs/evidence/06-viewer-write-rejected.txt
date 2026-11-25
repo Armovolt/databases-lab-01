@@ -1,0 +1,4 @@
+User: lab05_viewer
+SQL: UPDATE books SET title = title WHERE book_id = 1
+ERROR:  42501: permission denied for table books
+LOCATION:  aclcheck_error, aclchk.c:2843
